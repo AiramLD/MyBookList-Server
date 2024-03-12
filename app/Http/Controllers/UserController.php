@@ -22,7 +22,10 @@ class UserController extends Controller
      */
     public function create()
     {
-        //
+        $user = new User;
+
+        return response()->json($user);
+        
     }
 
     /**

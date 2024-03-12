@@ -21,8 +21,33 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 
-Route::post('/books', [BookController::class, 'store']);
+// Route::apiResource('user',UserController::class);
+// Route::apiResource('book',BookController::class);
+// Route::apiResource('userbook',UserBookController::class);
 
-Route::get('/users', [UserController::class, 'index']);
 
-Route::get('/userbooks', [UserBookController::class, 'index']);
+//Indexs
+// Route::get(('/users'), [UserController::class, 'index']);
+Route::get(('/books'), [BookController::class, 'index']);
+// Route::get(('/userbooks'), [UserBookController::class, 'index']);
+
+
+//Store
+Route::post('/users', [UserController::class, 'store']);
+// Route::post('/books', [BookController::class, 'store']);
+Route::post('/userbooks', [UserBookController::class, 'store']);
+
+//Show
+Route::get('/users/{id}', [UserController::class, 'show']);
+// Route::get('/books/{id}', [BookController::class, 'show']);
+Route::get('/userbooks/{id}', [UserBookController::class, 'show']);
+
+//Update
+Route::put('/users/{id}', [UserController::class, 'update']);
+// Route::put('/books/{id}', [BookController::class, 'update']);
+Route::put('/userbooks/{id}', [UserBookController::class, 'update']);
+
+//Destroy
+Route::delete('/users/{id}', [UserController::class, 'destroy']);
+// Route::delete('/books/{id}', [BookController::class, 'destroy']);
+Route::delete('/userbooks/{id}', [UserBookController::class, 'destroy']);

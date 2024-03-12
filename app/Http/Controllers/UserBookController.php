@@ -44,15 +44,17 @@ class UserBookController extends Controller
      */
     public function show(UserBook $userBook)
     {
-        //
+        return response()->json($userBook);
     }
 
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(UserBook $userBook)
+    public function edit(Request $request, UserBook $userBook)
     {
-        //
+        $userBook = UserBook::find($request->id);
+
+        return response()->json($userBook);
     }
 
     /**
@@ -69,6 +71,6 @@ class UserBookController extends Controller
      */
     public function destroy(UserBook $userBook)
     {
-        //
+        $userBook->delete();
     }
 }
