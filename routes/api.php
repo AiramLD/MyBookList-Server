@@ -27,13 +27,12 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 
 //Indexs
-// Route::get(('/users'), [UserController::class, 'index']);
+Route::get(('/users'), [UserController::class, 'index']);
 Route::get(('/books'), [BookController::class, 'index']);
 // Route::get(('/userbooks'), [UserBookController::class, 'index']);
 
 
 //Store
-Route::post('/users', [UserController::class, 'store']);
 // Route::post('/books', [BookController::class, 'store']);
 Route::post('/userbooks', [UserBookController::class, 'store']);
 
@@ -51,3 +50,20 @@ Route::put('/userbooks/{id}', [UserBookController::class, 'update']);
 Route::delete('/users/{id}', [UserController::class, 'destroy']);
 // Route::delete('/books/{id}', [BookController::class, 'destroy']);
 Route::delete('/userbooks/{id}', [UserBookController::class, 'destroy']);
+
+// Login
+Route::post('/login', [UserController::class, 'login'])->name('login');
+
+//Logout
+Route::post('/logout', [UserController::class, 'logout']);
+
+//Register
+Route::post('/register', [UserController::class, 'register']);
+
+//Delete
+Route::delete('/deleteAccount', [UserController::class, 'deleteAccount'])->middleware('auth');
+
+
+//FeedBack
+Route::post('/userbooks/{userbook_id}/feedback', [UserBookController::class, 'feedback'])->middleware('auth');
+

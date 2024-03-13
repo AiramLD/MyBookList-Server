@@ -42,6 +42,7 @@ class UserBookController extends Controller
     /**
      * Display the specified resource.
      */
+    //hacer este feedback
     public function show(UserBook $userBook)
     {
         return response()->json($userBook);
@@ -73,4 +74,26 @@ class UserBookController extends Controller
     {
         $userBook->delete();
     }
+    
+public function feedback(Request $request, $userbook_id) {
+    // Verificar si el usuario está autenticado, puede depender de tu sistema de autenticación
+    $user = auth()->user();
+
+    if (!$user) {
+        return response()->json(['error' => 'Usuario no autenticado.'], 401);
+    }
+
+    // Verificar si el usuario tiene este userbook
+    $userBook = UserBook::find($userbook_id);
+
+    if (!$userBook || $userBook->user_id !== $user->id) {
+        return response()->json(['error' => 'No se encontró el libro o no tienes acceso a él.'], 404);
+    }
+
+    // Guardar el feedback en la base de datos
+    $userBook->feedback = $request->input('feedback');
+    $userBook->save();
+
+    return response()->json(['success' => 'Feedback guardado correctamente.']);
+}
 }
