@@ -32,29 +32,47 @@ class BookController extends Controller
      */
     public function store(Request $request)
     {
-        // Validar los datos del formulario (opcional)
+        // Validar los datos del libro, esto puede variar dependiendo de tus requisitos
         $request->validate([
+            'id' => 'required',
             'title' => 'required|string',
+            'publishedDate' => 'required',
+            'num_pages'=> 'required|numeric',
+
+            // Puedes agregar más reglas de validación según tus necesidades
         ]);
 
-        // Crear un nuevo libro con los datos recibidos del formulario
+        // Crear un nuevo libro con los datos proporcionados por el usuario
+        $book = new Book();
+        
+        $book->id = $request->input('id');
+        $book->title = $request->input('title');
+        $book->publishedDate = $request->input('publishedDate');
+        $book->num_pages = $request->input('num_pages');
+        // Puedes agregar más campos según los datos que recibas de la API de Google Books
 
-        $book = Book::create([
-            'title' => $request->input('title'),
-            // Aquí puedes asignar valores a otras columnas si es necesario
-        ]);
+        // Guardar el libro en la base de datos
+        $book->save();
 
-        // Devolver el libro recién creado como respuesta
-        return $book;
+        // Responder con un mensaje de éxito
+        return response()->json(['message' => 'Libro guardado correctamente.']);
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Book $book)
+    public function show($id)
     {
-        // Devolver el libro especificado en la URL
-        return $book;
+        // Buscar el libro por su ID
+        $book = Book::find($id);
+
+        // Verificar si el libro existe
+        if (!$book) {
+            return response()->json(['error' => 'El libro no se encontró.'], 404);
+        }
+
+        // Retornar el libro encontrado
+        return response()->json($book);
     }
 
     /**
@@ -97,4 +115,21 @@ class BookController extends Controller
         // Devolver una respuesta de éxito
         return response()->json(['message' => 'Book deleted successfully'], 200);
     }
+    
+    // public function feedback(Request $request, $book_id) {
+    //     // Verificar si el usuario está autenticado, puede depender de tu sistema de autenticación
+    //     $user = auth()->user();
+    //     if (!$user) {
+    //         return response()->json(['error' => 'Usuario no autenticado.'], 401);
+    //     }else{
+    //         $book = Book::find($book_id);
+    //         if (!$book) {
+    //             return response()->json(['error' => 'No se encontró el libro.'], 404);
+    //         }
+    //         $book->feedback = $request->input('feedback');
+    //         $book->save();
+    //         return response()->json($book);
+    //     }
+
+    // }
 }

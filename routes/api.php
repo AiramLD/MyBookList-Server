@@ -58,13 +58,28 @@ Route::post('/login', [UserController::class, 'login'])->name('login');
 //Logout
 Route::post('/logout', [UserController::class, 'logout']);
 
-//Register
+//Register y Verificacion
 Route::post('/register', [UserController::class, 'register']);
+Route::get('/email/verify/{id}', [UserController::class, 'verify'])->name('verification.verify');
 
 //Delete
-Route::delete('/deleteAccount', [UserController::class, 'deleteAccount'])->middleware('auth');
+Route::delete('/usuarios/{usuario}', [UserController::class, 'destroy']);
 
+//Forgot PassWord
+Route::post('/password/reset', [UserController::class, 'forgotPassword'])->name('password.reset');
 
-//FeedBack
-Route::post('/userbooks/{userbook_id}/feedback', [UserBookController::class, 'feedback'])->middleware('auth');
+//Show Books
+Route::get('/books/{id}', [BookController::class, 'show']);
+
+//Store Book
+Route::post('/books', [BookController::class, 'store']);
+
+//UserBook Store
+Route::post('/user-books', [UserBookController::class, 'store']);
+
+//UserBook Show
+Route::get('/user-books/{userId}/{bookId}', [UserBookController::class, 'show']);
+
+//UserBook Update
+Route::put('/user-books/{userId}/{bookId}', [UserBookController::class, 'update']);
 

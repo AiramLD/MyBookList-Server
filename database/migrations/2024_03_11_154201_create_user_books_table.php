@@ -12,10 +12,12 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_books', function (Blueprint $table) {
+            $table->id(); // Clave primaria autoincremental
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('book_id')->constrained()->onDelete('cascade'); // Cambiar el tipo de dato a 'string'
             $table->integer('progress');
             $table->integer('score');
+            $table->string('status');
             $table->timestamps();
     
             $table->unique(['user_id', 'book_id']);
