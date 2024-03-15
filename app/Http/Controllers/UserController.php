@@ -42,28 +42,38 @@ class UserController extends Controller
      */
 
      public function login(Request $request) {
-         $credentials = $request->only('email', 'password');
-     
-         // Obtener el usuario por su dirección de correo electrónico
-         $user = User::where('email', $credentials['email'])->first();
-     
-         // Verificar si el usuario existe y si la contraseña coincide
-         if ($user && Hash::check($credentials['password'], $user->password)) {
-             // Autenticación exitosa
-             return response()->json(['user' => $user]);
-         }
-     
-         // Autenticación fallida
-         return response()->json(['error' => 'Credenciales incorrectas.'], 401);
-     }
-     
+        $credentials = $request->only('email', 'password');
+    
+        // Obtener el usuario por su dirección de correo electrónico
+        $user = User::where('email', $credentials['email'])->first();
+    
+        // Verificar si el usuario existe y si la contraseña coincide
+        if ($user && Hash::check($credentials['password'], $user->password)) {
+            // Verificar si el usuario ha verificado su correo electrónico
+            if (!$user->hasVerifiedEmail()) {
+                // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
+                $user->sendEmailVerificationNotification();
+                return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.']);
+            }
+    
+            // Generar un token de "remember"
+            $rememberToken = $user->createToken('remember_token')->plainTextToken;
+    
+            // Autenticación exitosa
+            return response()->json(['user' => $user, 'remember_token' => $rememberToken]);
+        }
+    
+        // Autenticación fallida
+        return response()->json(['error' => 'Credenciales incorrectas.'], 401);
+    }
 
-     public function logout(Request $request)
-     {
-         Auth::logout();
- 
-         return response()->json(['message' => 'Sesión cerrada exitosamente.']);
-     }
+    public function logout(Request $request)
+{
+    // Revocar todos los tokens del usuario autenticado (incluyendo el token de remember)
+    $request->user()->tokens()->delete();
+    
+    return response()->json(['message' => 'Sesión cerrada exitosamente.']);
+}
 
      public function register(Request $request)
      {
