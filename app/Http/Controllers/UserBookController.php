@@ -30,6 +30,11 @@ class UserBookController extends Controller
      */
     public function store(Request $request)
     {
+        // Verificar si el usuario está autenticado
+        if (!auth()->check()) {
+            return response()->json(['error' => 'Usuario no autenticado.'], 401);
+        }
+    
         // Validar los datos recibidos
         $request->validate([
             'book_id' => 'required|exists:books,id',
@@ -38,7 +43,7 @@ class UserBookController extends Controller
             'score' => 'nullable|numeric|min:1|max:5',
             'status' => 'required|in:leido,pendiente,siguiendo,favorito,abandonado',
         ]);
-
+    
         // Crear una nueva entrada de libro de usuario
         $userBook = new UserBook();
         $userBook->book_id = $request->book_id;
@@ -47,12 +52,10 @@ class UserBookController extends Controller
         $userBook->score = $request->score;
         $userBook->status = $request->status;
         $userBook->save();
-
+    
         // Responder con un mensaje de éxito
         return response()->json(['message' => 'Libro guardado en la lista de usuario correctamente.']);
     }
-
-
     /**
      * Display the specified resource.
      */
