@@ -21,6 +21,21 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
+    protected $authService;
+
+    public function __construct(AuthenticationService $authService)
+    {
+        $this->authService = $authService;
+    }
+
+    public function generateSessionToken(Request $request)
+    {
+        $user = $request->user(); // Obtén el usuario autenticado
+        $sessionToken = $this->authService->generateSessionToken($user);
+
+        return response()->json(['session_token' => $sessionToken]);
+    }
+    
     public function index()
     {
         $user = User::all();
@@ -82,7 +97,7 @@ class UserController extends Controller
     // }
 
     // Generar un token de autenticación de sesión
-    $sessionToken = $user->createToken('session_token')->plainTextToken;
+    $sessionToken = $authService->generateSessionToken($user);
 
     // Generar un token de "remember" si el usuario lo solicitó
     $rememberToken = null;

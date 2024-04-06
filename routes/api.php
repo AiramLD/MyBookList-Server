@@ -27,6 +27,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Route::apiResource('userbook',UserBookController::class);
 
 
+//Session Token
+Route::get('/generate-session-token', [UserController::class, 'generateSessionToken']);
 
 
 // Login
