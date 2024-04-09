@@ -14,7 +14,7 @@ use App\Mail\ResetPasswordMail;
 use Illuminate\Contracts\Mail\Mailable;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Password;
-
+use Firebase\JWT\JWT;
 
 class UserController extends Controller
 {
@@ -57,79 +57,100 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function login(Request $request)
-    {
-        // Validar los datos del formulario
-        $validator = Validator::make($request->all(), [
-            'email' => 'required|email',
-            'password' => 'required|string',
-            'remember' => 'nullable|boolean',
-        ]);
-    
-        // Verificar si la validación falla
-        if ($validator->fails()) {
-            return response()->json(['error' => $validator->errors()->first()], 422);
-        }
-    
-        // Obtener el usuario por su dirección de correo electrónico
-        $user = User::where('email', $request->email)->first();
-    
-        // Verificar si el usuario existe
-        if (!$user) {
-            return response()->json(['error' => 'No se encontró ningún usuario con ese correo electrónico.'], 404);
-        }
-    
-        // Verificar si el usuario ha verificado su correo electrónico
-        if (!$user->hasVerifiedEmail()) {
-            // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
-            $user->sendEmailVerificationNotification();
-            return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.']);
-        }
-    
-        // Verificar si la contraseña coincide
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['error' => 'Contraseña incorrecta.'], 401);
-        }
-    
-        // Generar un token de autenticación de sesión
-        $sessionToken = $user->createToken('session_token')->plainTextToken;
-    
-        // Generar un token de "recordar" solo si se seleccionó la opción de "recordar"
-        $rememberToken = null;
-        if ($request->input('remember')) {
-            $rememberToken = $user->createToken('remember_token')->plainTextToken;
-            // Actualizar el campo 'remember_token' en la base de datos
-            $user->update(['remember_token' => $rememberToken]);
-        }
-    
-        // Autenticación exitosa
-        return response()->json([
-            'user' => $user, 
-            'session_token' => $sessionToken, 
-            'remember_token' => $rememberToken
-        ]);
-    }
-
-public function saveRememberToken(Request $request)
+   public function login(Request $request)
 {
-    $rememberToken = $request->input('remember_token');
+    // Validar los datos del formulario
+    $validator = Validator::make($request->all(), [
+        'email' => 'required|email',
+        'password' => 'required|string',
+        'remember' => 'nullable|boolean',
+    ]);
 
-    if (!$rememberToken) {
-        return response()->json(['error' => 'No se proporcionó ningún token de recordar.'], 422);
+    // Verificar si la validación falla
+    if ($validator->fails()) {
+        return response()->json(['error' => $validator->errors()->first()], 422);
     }
 
-    $user = Auth::user();
+    // Obtener el usuario por su dirección de correo electrónico
+    $user = User::where('email', $request->email)->first();
 
+    // Verificar si el usuario existe
     if (!$user) {
-        return response()->json(['error' => 'Usuario no autenticado.'], 401);
+        return response()->json(['error' => 'No se encontró ningún usuario con ese correo electrónico.'], 404);
     }
 
-    // Guardar el token de recordar en el campo remember_token del usuario
-    $user->update(['remember_token' => $rememberToken]);
+    // Verificar si el usuario ha verificado su correo electrónico
+    if (!$user->hasVerifiedEmail()) {
+        // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
+        $user->sendEmailVerificationNotification();
+        return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.']);
+    }
 
-    return response()->json(['message' => 'Token de recordar guardado correctamente.']);
-}
+    // Verificar si la contraseña coincide
+    if (!Hash::check($request->password, $user->password)) {
+        return response()->json(['error' => 'Contraseña incorrecta.'], 401);
+    }
 
+    // Generar un token de autenticación de sesión
+    $sessionToken = $user->createToken('session_token')->plainTextToken;
+      // Generar un remember token si se seleccionó la opción de "recordar"
+      $rememberToken = null;
+      if ($request->input('remember')) {
+          $rememberToken = Str::random(60); // Generar un token aleatorio
+          $user->update(['remember_token' => $rememberToken]);
+      }
+  
+    // Crear el payload del token JWT con los datos del usuario
+    $payload = [
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'password' => $user->password
+        ]
+    ];
+
+    // Generar el token JWT
+    $jwtToken = JWT::encode($payload, 'your_secret_key', 'HS256');
+
+    // Autenticación exitosa
+    return response()->json([
+        'user' => $user,
+        'session_token' => $sessionToken,
+        'remember_token' => $rememberToken,
+        'jwt_token' => $jwtToken
+    ]);
+    }
+
+
+    public function verificarToken(Request $request)
+    {
+        $jwtToken = $request->header('Authorization');
+    
+        if (!$jwtToken) {
+            // Si no se proporciona un token JWT en las cabeceras, devuelve un error de no autorizado
+            return response()->json(['error' => 'Token JWT no proporcionado.'], 401);
+        }
+    
+        try {
+            // Decodificar el token JWT usando la clave secreta
+            $decoded = JWT::decode($jwtToken, 'your_secret_key', ['HS256']);
+    
+            // Obtener los datos del usuario del token decodificado
+            $userData = $decoded->user;
+    
+            // Hacer lo que necesites con los datos del usuario
+
+            // Por ejemplo, buscar el usuario en la base de datos usando $userData['id']
+    
+            // Si todo está bien, puedes continuar con la lógica de tu aplicación
+            return response()->json(['message' => 'Token JWT válido.', 'user' => $userData], 200);
+        } catch (\Exception $e) {
+            // Si ocurre algún error al verificar el token JWT, devuelve un error de no autorizado
+            return response()->json(['error' => 'Token JWT inválido.', 'message' => $e->getMessage()], 401);
+        }
+    }
+    
 
     public function logout(Request $request)
 {
