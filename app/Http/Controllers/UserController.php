@@ -21,20 +21,20 @@ class UserController extends Controller
     /**
      * Display a listing of the resource.
      */
-    protected $authService;
+    // protected $authService;
 
-    public function __construct(AuthenticationService $authService)
-    {
-        $this->authService = $authService;
-    }
+    // public function __construct(AuthenticationService $authService)
+    // {
+    //     $this->authService = $authService;
+    // }
 
-    public function generateSessionToken(Request $request)
-    {
-        $user = $request->user(); // Obtén el usuario autenticado
-        $sessionToken = $this->authService->generateSessionToken($user);
+    // public function generateSessionToken(Request $request)
+    // {
+    //     $user = $request->user(); // Obtén el usuario autenticado
+    //     $sessionToken = $this->authService->generateSessionToken($user);
 
-        return response()->json(['session_token' => $sessionToken]);
-    }
+    //     return response()->json(['session_token' => $sessionToken]);
+    // }
     
     public function index()
     {
@@ -58,61 +58,79 @@ class UserController extends Controller
      * Store a newly created resource in storage.
      */
     public function login(Request $request)
-{
-    // Validar los datos del formulario
-    $validator = Validator::make($request->all(), [
-        'email' => 'required|email',
-        'password' => 'required|string',
-        'remember' => 'nullable|boolean',
-    ]);
-
-    // Verificar si la validación falla
-    if ($validator->fails()) {
-        return response()->json(['error' => $validator->errors()->first()], 422);
-    }
-
-    // Obtener el usuario por su dirección de correo electrónico
-    $user = User::where('email', $request->email)->first();
-
-    // Verificar si el usuario existe
-    if (!$user) {
-        return response()->json(['error' => 'No se encontró ningún usuario con ese correo electrónico.'], 404);
-    }
-
-    // Verificar si el usuario ha verificado su correo electrónico
-    if (!$user->hasVerifiedEmail()) {
-        // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
-        $user->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.']);
-    }
-
-    // Verificar si la contraseña coincide
-    if (!Hash::check($request->password, $user->password)) {
-        return response()->json(['error' => 'Contraseña incorrecta.'], 401);
-    }
-
-    // // Verificar si el usuario ya ha utilizado esa contraseña
-    // if (Hash::check($request->password, $user->password)) {
-    //     return response()->json(['error' => 'Ya has utilizado esta contraseña antes.'], 409);
-    // }
-
-    // Generar un token de autenticación de sesión
-    $sessionToken = $authService->generateSessionToken($user);
-
-    // Generar un token de "remember" si el usuario lo solicitó
-    $rememberToken = null;
-    if ($request->input('remember')) {
-        $rememberToken = $user->createToken('remember_token')->plainTextToken;
-    }
-
-    // Autenticación exitosa
-    return response()->json([
-        'user' => $user, 
-        'session_token' => $sessionToken, 
-        'remember_token' => $rememberToken
-    ]);
-}
+    {
+        // Validar los datos del formulario
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string',
+            'remember' => 'nullable|boolean',
+        ]);
     
+        // Verificar si la validación falla
+        if ($validator->fails()) {
+            return response()->json(['error' => $validator->errors()->first()], 422);
+        }
+    
+        // Obtener el usuario por su dirección de correo electrónico
+        $user = User::where('email', $request->email)->first();
+    
+        // Verificar si el usuario existe
+        if (!$user) {
+            return response()->json(['error' => 'No se encontró ningún usuario con ese correo electrónico.'], 404);
+        }
+    
+        // Verificar si el usuario ha verificado su correo electrónico
+        if (!$user->hasVerifiedEmail()) {
+            // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
+            $user->sendEmailVerificationNotification();
+            return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.']);
+        }
+    
+        // Verificar si la contraseña coincide
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['error' => 'Contraseña incorrecta.'], 401);
+        }
+    
+        // Generar un token de autenticación de sesión
+        $sessionToken = $user->createToken('session_token')->plainTextToken;
+    
+        // Generar un token de "recordar" solo si se seleccionó la opción de "recordar"
+        $rememberToken = null;
+        if ($request->input('remember')) {
+            $rememberToken = $user->createToken('remember_token')->plainTextToken;
+            // Actualizar el campo 'remember_token' en la base de datos
+            $user->update(['remember_token' => $rememberToken]);
+        }
+    
+        // Autenticación exitosa
+        return response()->json([
+            'user' => $user, 
+            'session_token' => $sessionToken, 
+            'remember_token' => $rememberToken
+        ]);
+    }
+
+public function saveRememberToken(Request $request)
+{
+    $rememberToken = $request->input('remember_token');
+
+    if (!$rememberToken) {
+        return response()->json(['error' => 'No se proporcionó ningún token de recordar.'], 422);
+    }
+
+    $user = Auth::user();
+
+    if (!$user) {
+        return response()->json(['error' => 'Usuario no autenticado.'], 401);
+    }
+
+    // Guardar el token de recordar en el campo remember_token del usuario
+    $user->update(['remember_token' => $rememberToken]);
+
+    return response()->json(['message' => 'Token de recordar guardado correctamente.']);
+}
+
+
     public function logout(Request $request)
 {
     // Revocar todos los tokens del usuario autenticado (incluyendo el token de remember)

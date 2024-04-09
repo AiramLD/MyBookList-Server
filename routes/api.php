@@ -30,6 +30,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //Session Token
 Route::get('/generate-session-token', [UserController::class, 'generateSessionToken']);
 
+//Save Remember
+Route::post('/save-remember-token', [UserController::class, 'saveRememberToken'])->middleware('auth:sanctum');
 
 // Login
 Route::post('/login', [UserController::class, 'login'])->name('login');
