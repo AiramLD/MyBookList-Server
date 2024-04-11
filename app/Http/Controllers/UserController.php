@@ -14,27 +14,10 @@ use App\Mail\ResetPasswordMail;
 use Illuminate\Contracts\Mail\Mailable;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Password;
-use Firebase\JWT\JWT;
 
 class UserController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    // protected $authService;
-
-    // public function __construct(AuthenticationService $authService)
-    // {
-    //     $this->authService = $authService;
-    // }
-
-    // public function generateSessionToken(Request $request)
-    // {
-    //     $user = $request->user(); // Obtén el usuario autenticado
-    //     $sessionToken = $this->authService->generateSessionToken($user);
-
-    //     return response()->json(['session_token' => $sessionToken]);
-    // }
+  
     
     public function index()
     {
@@ -57,7 +40,7 @@ class UserController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-   public function login(Request $request)
+    public function login(Request $request)
 {
     // Validar los datos del formulario
     $validator = Validator::make($request->all(), [
@@ -90,67 +73,55 @@ class UserController extends Controller
     if (!Hash::check($request->password, $user->password)) {
         return response()->json(['error' => 'Contraseña incorrecta.'], 401);
     }
-
+    
     // Generar un token de autenticación de sesión
     $sessionToken = $user->createToken('session_token')->plainTextToken;
-      // Generar un remember token si se seleccionó la opción de "recordar"
-      $rememberToken = null;
-      if ($request->input('remember')) {
-          $rememberToken = Str::random(60); // Generar un token aleatorio
-          $user->update(['remember_token' => $rememberToken]);
-      }
-  
-    // Crear el payload del token JWT con los datos del usuario
-    $payload = [
-        'user' => [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'password' => $user->password
-        ]
-    ];
 
-    // Generar el token JWT
-    $jwtToken = JWT::encode($payload, 'your_secret_key', 'HS256');
+    // Verificar si ya tiene un token de "recordar"
+    $rememberToken = $user->remember_token;
+
+    // Si no tiene un token de "recordar", generarlo y guardarlo en la base de datos
+    if (!$rememberToken) {
+        $rememberToken = $user->createToken('remember_token')->plainTextToken;
+        $user->update(['remember_token' => $rememberToken]);
+    }
 
     // Autenticación exitosa
     return response()->json([
-        'user' => $user,
-        'session_token' => $sessionToken,
+        'user' => $user, 
+        'session_token' => $sessionToken, 
         'remember_token' => $rememberToken,
-        'jwt_token' => $jwtToken
     ]);
+}
+
+public function compareTokens(Request $request)
+{
+    // Validar que el cuerpo de la solicitud contenga el token enviado desde el frontend
+    $request->validate([
+        'front_token' => 'required|string',
+    ]);
+
+    // Obtener el usuario autenticado mediante el token de "recordar"
+    $user = User::where('remember_token', $request->front_token)->first();
+
+    // Verificar si se encontró un usuario con ese token de "recordar"
+    if (!$user) {
+        return response()->json(['error' => 'El token no coincide con ningún usuario.'], 401);
     }
 
+    // Autenticar automáticamente al usuario
+    Auth::login($user);
 
-    public function verificarToken(Request $request)
-    {
-        $jwtToken = $request->header('Authorization');
-    
-        if (!$jwtToken) {
-            // Si no se proporciona un token JWT en las cabeceras, devuelve un error de no autorizado
-            return response()->json(['error' => 'Token JWT no proporcionado.'], 401);
-        }
-    
-        try {
-            // Decodificar el token JWT usando la clave secreta
-            $decoded = JWT::decode($jwtToken, 'your_secret_key', ['HS256']);
-    
-            // Obtener los datos del usuario del token decodificado
-            $userData = $decoded->user;
-    
-            // Hacer lo que necesites con los datos del usuario
+    // Generar un token de autenticación de sesión para el usuario
+    $sessionToken = $user->createToken('session_token')->plainTextToken;
 
-            // Por ejemplo, buscar el usuario en la base de datos usando $userData['id']
-    
-            // Si todo está bien, puedes continuar con la lógica de tu aplicación
-            return response()->json(['message' => 'Token JWT válido.', 'user' => $userData], 200);
-        } catch (\Exception $e) {
-            // Si ocurre algún error al verificar el token JWT, devuelve un error de no autorizado
-            return response()->json(['error' => 'Token JWT inválido.', 'message' => $e->getMessage()], 401);
-        }
-    }
-    
+    // Autenticación exitosa
+    return response()->json([
+        'user' => $user, 
+        'session_token' => $sessionToken,
+    ]);
+}
+
 
     public function logout(Request $request)
 {
@@ -185,7 +156,7 @@ public function register(Request $request)
     $user->sendEmailVerificationNotification();
 
     // Responder con una confirmación
-    return response()->json(['message' => 'Usuario registrado correctamente. Se ha enviado un correo electrónico de verificación.']);
+    return response()->json(['message' => 'Usuario registrado correctamente. Se ha enviado un correo electrónico de verificación.'],200);
 }
      
 
@@ -296,6 +267,18 @@ public function register(Request $request)
             ? response()->json(['message' => 'Contraseña restablecida con éxito.'], 200)
             : response()->json(['error' => 'No se pudo restablecer la contraseña.'], 400);
     }
+
+    // public function forgotPassword(Request $request)
+    // {
+    //     $request->validate(['email' => 'required|email']);
+    
+    //     // Generar un token de restablecimiento de contraseña y enviar el correo
+    //     $status = Password::sendResetLink(
+    //         $request->only('email')
+    //     );
+    
+    //     if ($status === Password::RESET_LINK_SENT) {
+    //         return response()->json(['message' => 'Correo electrónico enviado con éxito.'], 200);
 }
 
 

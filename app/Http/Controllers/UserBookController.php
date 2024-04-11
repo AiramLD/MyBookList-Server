@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\UserBook;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class UserBookController extends Controller
 {
@@ -28,39 +29,36 @@ class UserBookController extends Controller
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
-    {
-        // Verificar si el usuario está autenticado
-        if (!auth()->check()) {
-            return response()->json(['error' => 'Usuario no autenticado.'], 401);
+        public function store(Request $request)
+        {
+            // Validar los datos recibidos
+            $validator = Validator::make($request->all(), [
+                'user_id' => 'required|exists:users,id',
+                'book_id' => 'required|exists:books,id',
+                'progress' => 'nullable|integer|min:0|max:100',
+                'score' => 'nullable|integer|min:1|max:5',
+                'status' => 'required|in:leido,pendiente,siguiendo,favorito,abandonado',
+            ]);
+    
+            // Verificar si hay errores en la validación
+            if ($validator->fails()) {
+                return response()->json(['error' => 'Error en la validación.', 'details' => $validator->errors()], 422);
+            }
+    
+            // Crear una nueva entrada de libro de usuario
+            $userBook = new UserBook();
+            $userBook->user_id = $request->user_id;
+            $userBook->book_id = $request->book_id;
+            $userBook->progress = $request->progress ?? 0;
+            $userBook->score = $request->score ?? 0;
+            $userBook->status = $request->status;
+            $userBook->save();
+    
+            // Responder con un mensaje de éxito
+            return response()->json(['message' => 'Libro guardado en la lista de usuario correctamente.'], 201);
         }
     
-        // Validar los datos recibidos
-        $validator = Validator::make($request->all(), [
-            'book_id' => 'required|exists:books,id',
-            'user_id' => 'required|exists:users,id',
-            'progress' => 'nullable|numeric|min:0|max:100',
-            'score' => 'nullable|numeric|min:1|max:5',
-            'status' => 'required|in:leido,pendiente,siguiendo,favorito,abandonado',
-        ]);
     
-        // Verificar si hay errores en la validación
-        if ($validator->fails()) {
-            return response()->json(['error' => 'Error en la validación.', 'details' => $validator->errors()], 422);
-        }
-    
-        // Crear una nueva entrada de libro de usuario
-        $userBook = new UserBook();
-        $userBook->book_id = $request->book_id;
-        $userBook->user_id = $request->user_id;
-        $userBook->progress = $request->progress;
-        $userBook->score = $request->score;
-        $userBook->status = $request->status;
-        $userBook->save();
-    
-        // Responder con un mensaje de éxito
-        return response()->json(['message' => 'Libro guardado en la lista de usuario correctamente.'], 201);
-    }
     
     /**
      * Display the specified resource.
@@ -101,41 +99,44 @@ class UserBookController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, $userId, $bookId)
-{
-    // Validar los datos recibidos en la solicitud
-    $request->validate([
-        'progress' => 'nullable|integer|min:0|max:100',
-        'score' => 'nullable|integer|min:1|max:5',
-        'status' => 'nullable|in:leido,pendiente,siguiendo,favorito,abandonado',
-    ]);
-
-    // Buscar el registro de user_book
-    $userBook = UserBook::where('user_id', $userId)->where('book_id', $bookId)->first();
-
-    // Verificar si el registro existe
-    if (!$userBook) {
-        return response()->json(['error' => 'El usuario o el libro no existen.'], 404);
+    public function update(Request $request)
+    {
+        // Validar los datos recibidos en la solicitud
+        $request->validate([
+            'user_id' => 'required|exists:users,id',
+            'book_id' => 'required|exists:books,id',
+            'progress' => 'nullable|integer|min:0|max:100',
+            'score' => 'nullable|integer|min:1|max:5',
+            'status' => 'nullable|in:leido,pendiente,siguiendo,favorito,abandonado',
+        ]);
+    
+        // Buscar el registro de user_book
+        $userBook = UserBook::where('user_id', $request->user_id)
+                            ->where('book_id', $request->book_id)
+                            ->first();
+    
+        // Verificar si el registro existe
+        if (!$userBook) {
+            return response()->json(['error' => 'El usuario o el libro no existen.'], 404);
+        }
+    
+        // Actualizar los campos si se proporcionan en la solicitud
+        if ($request->has('progress')) {
+            $userBook->progress = $request->progress;
+        }
+        if ($request->has('score')) {
+            $userBook->score = $request->score;
+        }
+        if ($request->has('status')) {
+            $userBook->status = $request->status;
+        }
+    
+        // Guardar los cambios en la base de datos
+        $userBook->save();
+    
+        // Responder con un mensaje de éxito
+        return response()->json(['message' => 'Registro de usuario-libro actualizado correctamente.'], 200);
     }
-
-    // Actualizar los campos si se proporcionan en la solicitud
-    if ($request->has('progress')) {
-        $userBook->progress = $request->progress;
-    }
-    if ($request->has('score')) {
-        $userBook->score = $request->score;
-    }
-    if ($request->has('status')) {
-        $userBook->status = $request->status;
-    }
-
-    // Guardar los cambios en la base de datos
-    $userBook->save();
-
-    // Responder con un mensaje de éxito
-    return response()->json(['message' => 'Registro de usuario-libro actualizado correctamente.'], 200);
-}
-
 
     /**
      * Remove the specified resource from storage.

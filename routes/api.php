@@ -26,34 +26,26 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Route::apiResource('book',BookController::class);
 // Route::apiResource('userbook',UserBookController::class);
 
-
-//Session Token
-Route::get('/generate-session-token', [UserController::class, 'generateSessionToken']);
-
-//Save Remember
-Route::post('/save-remember-token', [UserController::class, 'saveRememberToken'])->middleware('auth:sanctum');
-
-// Login
-Route::post('/login', [UserController::class, 'login'])->name('login');
-
-//Logout
-Route::post('/logout', [UserController::class, 'logout'])->middleware('auth:sanctum');
-
 //Register y Verificacion
 Route::post('/register', [UserController::class, 'register']);
 Route::get('/email/verify/{id}', [UserController::class, 'verify'])->name('verification.verify');
 
 
+// Login
+Route::post('/login', [UserController::class, 'login'])->name('login');
+
+
+//Logout
+Route::post('/logout', [UserController::class, 'logout'])->middleware('auth:sanctum');
+
 //DeleteAccount
 Route::delete('/delete-account', [UserController::class, 'deleteAccount'])->middleware('auth:sanctum');
-
-//No salen
-Route::post('forgot-password', [UserController::class, 'forgotPassword'])->name('password.email');
-Route::post('reset-password', [UserController::class, 'resetPassword'])->name('password.update');
 
 
 //Store Book
 Route::middleware('auth:sanctum')->post('/add-book', [BookController::class, 'store']);
+
+
 
 //Show Books
 Route::get('/books/{id}', [BookController::class, 'show']);
@@ -67,5 +59,13 @@ Route::middleware('auth:sanctum')->post('/user-books', [UserBookController::clas
 Route::middleware('auth:sanctum')->get('/user-books/{userId}/{bookId}', [UserBookController::class, 'show']);
 
 //UserBook Update
-Route::middleware('auth:sanctum')->put('/user-books/{userId}/{bookId}', [UserBookController::class, 'update']);
+Route::middleware('auth:sanctum')->put('/user-books', [UserBookController::class, 'update']);
 
+//No salen
+Route::post('forgot-password', [UserController::class, 'forgotPassword'])->name('password.email');
+Route::post('reset-password', [UserController::class, 'resetPassword'])->name('password.update');
+
+
+
+//remember token
+Route::post('/compare-remember-tokens', [UserController::class, 'compareTokens']);
