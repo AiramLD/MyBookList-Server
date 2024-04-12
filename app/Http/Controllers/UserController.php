@@ -66,7 +66,7 @@ class UserController extends Controller
     if (!$user->hasVerifiedEmail()) {
         // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
         $user->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.']);
+        return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.'], 401);
     }
 
     // Verificar si la contraseña coincide
@@ -97,16 +97,23 @@ class UserController extends Controller
 public function compareTokens(Request $request)
 {
     // Validar que el cuerpo de la solicitud contenga el token enviado desde el frontend
-    $request->validate([
+    $validator = Validator::make($request->all(), [
         'front_token' => 'required|string',
     ]);
+
+    // Verificar si la validación falla
+    if ($validator->fails()) {
+        // Error de validación
+        return response()->json(['error' => 'El token enviado desde el frontend es inválido o no está presente.'], 422);
+    }
 
     // Obtener el usuario autenticado mediante el token de "recordar"
     $user = User::where('remember_token', $request->front_token)->first();
 
     // Verificar si se encontró un usuario con ese token de "recordar"
     if (!$user) {
-        return response()->json(['error' => 'El token no coincide con ningún usuario.'], 401);
+        // No se encontró ningún usuario con el token proporcionado
+        return response()->json(['error' => 'El token de recordar no coincide con ningún usuario.'], 401);
     }
 
     // Autenticar automáticamente al usuario
@@ -123,12 +130,20 @@ public function compareTokens(Request $request)
 }
 
 
-    public function logout(Request $request)
+
+public function logout(Request $request)
 {
+    // Verificar si el usuario está autenticado
+    if (!$request->user()) {
+        // Usuario no autenticado
+        return response()->json(['error' => 'No se puede cerrar sesión porque el usuario no está autenticado.'], 401);
+    }
+
     // Revocar todos los tokens del usuario autenticado (incluyendo el token de remember)
     $request->user()->tokens()->delete();
     
-    return response()->json(['message' => 'Sesión cerrada exitosamente.']);
+    // Sesión cerrada exitosamente
+    return response()->json(['message' => 'Sesión cerrada exitosamente.'], 200);
 }
 
 public function register(Request $request)
@@ -137,12 +152,33 @@ public function register(Request $request)
     $validator = Validator::make($request->all(), [
         'name' => 'required|string',
         'email' => 'required|email|unique:users,email',
-        'password' => 'required|string|min:6',
+        'password' => [
+            'required',
+            'string',
+            'min:8',
+            // Utilizar una expresión regular para asegurarse de que la contraseña contenga al menos una letra y un número
+            'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
+        ],
     ]);
 
     // Verificar si la validación falla
     if ($validator->fails()) {
-        return response()->json(['error' => $validator->errors()->first()], 422);
+        $errors = $validator->errors();
+
+        // Error de nombre requerido
+        if ($errors->has('name')) {
+            return response()->json(['error' => 'El nombre es requerido.'], 422);
+        }
+
+        // Error de formato de correo electrónico
+        if ($errors->has('email')) {
+            return response()->json(['error' => 'El formato del correo electrónico es inválido.'], 422);
+        }
+
+        // Error de contraseña requerida
+        if ($errors->has('password')) {
+            return response()->json(['error' => 'La contraseña es requerida y debe tener al menos 8 caracteres, incluyendo al menos una letra y un número.'], 422);
+        }
     }
 
     // Crear un nuevo usuario
@@ -157,30 +193,32 @@ public function register(Request $request)
 
     // Responder con una confirmación
     return response()->json(['message' => 'Usuario registrado correctamente. Se ha enviado un correo electrónico de verificación.'],200);
-}
-     
+} 
 
-     public function verify(Request $request)
-     {
-         // Verificar si la URL está firmada correctamente
-         if (!URL::hasValidSignature($request)) {
-             return response()->json(['error' => 'URL de verificación no válida.'], 401);
-         }
-     
-         // Buscar al usuario por su ID
-         $user = User::findOrFail($request->id);
-     
-         // Verificar si el usuario ya está verificado
-         if ($user->hasVerifiedEmail()) {
-             return response()->json(['message' => 'El usuario ya ha sido verificado anteriormente.']);
-         }
-     
-         // Marcar al usuario como verificado
-         $user->markEmailAsVerified();
-     
-         // Responder con una confirmación
-         return response()->json(['message' => 'Correo electrónico verificado correctamente.']);
-     }
+public function verify(Request $request)
+{
+    // Verificar si la URL está firmada correctamente
+    if (!URL::hasValidSignature($request)) {
+        // URL de verificación no válida
+        return response()->json(['error' => 'URL de verificación no válida.'], 401);
+    }
+
+    // Buscar al usuario por su ID
+    $user = User::findOrFail($request->id);
+
+    // Verificar si el usuario ya está verificado
+    if ($user->hasVerifiedEmail()) {
+        // Usuario ya verificado
+        return response()->json(['message' => 'El usuario ya ha sido verificado anteriormente.'], 409);
+    }
+
+    // Marcar al usuario como verificado
+    $user->markEmailAsVerified();
+
+    // Correo electrónico verificado correctamente
+    return response()->json(['message' => 'Correo electrónico verificado correctamente.'], 200);
+}
+
       
 
     /**
@@ -212,73 +250,78 @@ public function register(Request $request)
      */
     
      public function deleteAccount(Request $request)
-    {
-        // Obtener el usuario autenticado
-        $user = Auth::user();
+     {
+         // Obtener el usuario autenticado
+         $user = Auth::user();
+     
+         // Verificar si el usuario está autenticado
+         if (!$user) {
+             // Usuario no autenticado
+             return response()->json(['error' => 'Usuario no autenticado.'], 401);
+         }
+     
+         // Eliminar el usuario de la base de datos
+         $request->user()->delete();
+     
+         // Desconectar al usuario
+         $request->user()->tokens()->delete();
+         
+         // Cuenta eliminada correctamente
+         return response()->json(['message' => 'Cuenta eliminada correctamente.']);
+     }
+     
 
-        // Verificar si el usuario está autenticado
-        if (!$user) {
-            return response()->json(['error' => 'Usuario no autenticado.'], 401);
-        }
+     public function forgotPassword(Request $request)
+     {
+         // Validar el correo electrónico proporcionado
+         $request->validate(['email' => 'required|email']);
+     
+         // Generar un token de restablecimiento de contraseña y enviar el correo
+         $status = Password::sendResetLink(
+             $request->only('email')
+         );
+     
+         // Verificar el estado del envío del correo electrónico
+         if ($status === Password::RESET_LINK_SENT) {
+             // Correo electrónico enviado con éxito
+             return response()->json(['message' => 'Correo electrónico enviado con éxito.'], 200);
+         } else {
+             // No se pudo enviar el correo electrónico
+             return response()->json(['error' => 'No se pudo enviar el correo electrónico.'], 400);
+         }
+     }
+     
 
-        // Eliminar el usuario de la base de datos
-        $request->user()->delete();
+    //  public function resetPassword(Request $request)
+    //  {
+    //      // Validar los datos proporcionados en la solicitud
+    //      $request->validate([
+    //          'email' => 'required|email',
+    //          'token' => 'required|string',
+    //          'password' => 'required|string|min:8|confirmed',
+    //      ]);
+     
+    //      // Intentar restablecer la contraseña
+    //      $status = Password::reset(
+    //          $request->only('email', 'password', 'password_confirmation', 'token'),
+    //          function ($user, $password) {
+    //              // Guardar la nueva contraseña para el usuario
+    //              $user->password = bcrypt($password);
+    //              $user->save();
+    //          }
+    //      );
+     
+    //      // Verificar el resultado del restablecimiento de contraseña
+    //      if ($status === Password::PASSWORD_RESET) {
+    //          // Contraseña restablecida con éxito
+    //          return response()->json(['message' => 'Contraseña restablecida con éxito.'], 200);
+    //      } else {
+    //          // No se pudo restablecer la contraseña
+    //          return response()->json(['error' => 'No se pudo restablecer la contraseña.'], 400);
+    //      }
+    //  }
+     
 
-        // Desconectar al usuario
-        $request->user()->tokens()->delete();
-    
-        return response()->json(['message' => 'Cuenta eliminada correctamente.']);
-    }
-    
-
-    public function forgotPassword(Request $request)
-    {
-        $request->validate(['email' => 'required|email']);
-    
-        // Generar un token de restablecimiento de contraseña y enviar el correo
-        $status = Password::sendResetLink(
-            $request->only('email')
-        );
-    
-        if ($status === Password::RESET_LINK_SENT) {
-            return response()->json(['message' => 'Correo electrónico enviado con éxito.'], 200);
-        } else {
-            return response()->json(['error' => 'No se pudo enviar el correo electrónico.'], 400);
-        }
-    }
-
-    public function resetPassword(Request $request)
-    {
-        $request->validate([
-            'email' => 'required|email',
-            'token' => 'required|string',
-            'password' => 'required|string|min:8|confirmed',
-        ]);
-
-        $status = Password::reset(
-            $request->only('email', 'password', 'password_confirmation', 'token'),
-            function ($user, $password) {
-                $user->password = bcrypt($password);
-                $user->save();
-            }
-        );
-
-        return $status === Password::PASSWORD_RESET
-            ? response()->json(['message' => 'Contraseña restablecida con éxito.'], 200)
-            : response()->json(['error' => 'No se pudo restablecer la contraseña.'], 400);
-    }
-
-    // public function forgotPassword(Request $request)
-    // {
-    //     $request->validate(['email' => 'required|email']);
-    
-    //     // Generar un token de restablecimiento de contraseña y enviar el correo
-    //     $status = Password::sendResetLink(
-    //         $request->only('email')
-    //     );
-    
-    //     if ($status === Password::RESET_LINK_SENT) {
-    //         return response()->json(['message' => 'Correo electrónico enviado con éxito.'], 200);
 }
 
 
