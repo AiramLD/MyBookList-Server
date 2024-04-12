@@ -43,7 +43,7 @@ Route::delete('/delete-account', [UserController::class, 'deleteAccount'])->midd
 
 
 //Store Book
-Route::middleware('auth:sanctum')->post('/add-book', [BookController::class, 'store']);
+Route::middleware('auth:sanctum')->post('/add-book', [BookController::class, 'addBook']);
 
 
 
@@ -56,7 +56,7 @@ Route::get('/books/{id}', [BookController::class, 'show']);
 Route::middleware('auth:sanctum')->post('/user-books', [UserBookController::class, 'store']);
 
 //UserBook Show
-Route::middleware('auth:sanctum')->get('/user-books/{userId}/{bookId}', [UserBookController::class, 'show']);
+Route::middleware('auth:sanctum')->post('/user-books/show', [UserBookController::class, 'show']);
 
 //UserBook Update
 Route::middleware('auth:sanctum')->put('/user-books', [UserBookController::class, 'update']);
@@ -65,6 +65,8 @@ Route::middleware('auth:sanctum')->put('/user-books', [UserBookController::class
 Route::post('forgot-password', [UserController::class, 'forgotPassword'])->name('password.email');
 Route::post('reset-password', [UserController::class, 'resetPassword'])->name('password.update');
 
+//delete UserBook
+Route::middleware('auth:sanctum')->delete('/user-books', [UserBookController::class, 'destroy']);
 
 
 //remember token

@@ -41,255 +41,246 @@ class UserController extends Controller
      * Store a newly created resource in storage.
      */
     public function login(Request $request)
-{
-    // Validar los datos del formulario
-    $validator = Validator::make($request->all(), [
-        'email' => 'required|email',
-        'password' => 'required|string',
-        'remember' => 'nullable|boolean',
-    ]);
-
-    // Verificar si la validación falla
-    if ($validator->fails()) {
-        return response()->json(['error' => $validator->errors()->first()], 422);
+    {
+        // Validate form data
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email',
+            'password' => 'required|string',
+            'remember' => 'nullable|boolean',
+        ]);
+    
+        // Check if validation fails
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 400);
+        }
+    
+        // Get the user by email address
+        $user = User::where('email', $request->email)->first();
+    
+        // Check if the user exists
+        if (!$user) {
+            return response()->json(['errors' => ['email' => 'No user found with that email address.']], 400);
+        }
+    
+        // Check if the user has verified their email
+        if (!$user->hasVerifiedEmail()) {
+            // If the user has not verified their email, send the verification email
+            $user->sendEmailVerificationNotification();
+            return response()->json(['message' => 'Please verify your email to complete the registration process.'], 400);
+        }
+    
+        // Check if the password matches
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json(['errors' => ['password' => 'Incorrect password.']], 400);
+        }
+        
+        // Generate a session authentication token
+        $sessionToken = $user->createToken('session_token')->plainTextToken;
+    
+        // Check if the user already has a "remember" token
+        $rememberToken = $user->remember_token;
+    
+        // If the user does not have a "remember" token, generate and save it in the database
+        if (!$rememberToken) {
+            $rememberToken = $user->createToken('remember_token')->plainTextToken;
+            $user->update(['remember_token' => $rememberToken]);
+        }
+    
+        // Successful authentication
+        return response()->json([
+            'user' => $user, 
+            'session_token' => $sessionToken, 
+            'remember_token' => $rememberToken,
+        ], 200);
     }
+    
+    
 
-    // Obtener el usuario por su dirección de correo electrónico
-    $user = User::where('email', $request->email)->first();
-
-    // Verificar si el usuario existe
-    if (!$user) {
-        return response()->json(['error' => 'No se encontró ningún usuario con ese correo electrónico.'], 404);
+    public function compareTokens(Request $request)
+    {
+        // Validate that the request body contains the token sent from the frontend
+        $validator = Validator::make($request->all(), [
+            'front_token' => 'required|string',
+        ]);
+    
+        // Check if validation fails
+        if ($validator->fails()) {
+            // Validation error
+            return response()->json(['errors' => $validator->errors()], 400);
+        }
+    
+        // Get the authenticated user using the "remember" token
+        $user = User::where('remember_token', $request->front_token)->first();
+    
+        // Check if a user with that "remember" token was found
+        if (!$user) {
+            // No user found with the provided token
+            return response()->json(['errors' => ['front_token' => 'The remember token does not match any user.']], 401);
+        }
+    
+        // Automatically authenticate the user
+        Auth::login($user);
+    
+        // Generate a session authentication token for the user
+        $sessionToken = $user->createToken('session_token')->plainTextToken;
+    
+        // Successful authentication
+        return response()->json([
+            'user' => $user, 
+            'session_token' => $sessionToken,
+        ]);
     }
+    
 
-    // Verificar si el usuario ha verificado su correo electrónico
-    if (!$user->hasVerifiedEmail()) {
-        // Si el usuario no ha verificado su correo electrónico, enviar el correo de verificación
+
+    public function logout(Request $request)
+    {
+        // Check if the user is authenticated
+        if (!$request->user()) {
+            // Unauthenticated user
+            return response()->json(['error' => 'Cannot log out because the user is not authenticated.'], 401);
+        }
+    
+        // Revoke all tokens of the authenticated user (including the remember token)
+        $request->user()->tokens()->delete();
+        
+        // Session closed successfully
+        return response()->json(['message' => 'Session closed successfully.'], 200);
+    }
+    
+
+    public function register(Request $request)
+    {
+        // Validar los datos del formulario
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string',
+            'email' => 'required|email|unique:users,email',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                // Utilizar una expresión regular para asegurarse de que la contraseña contenga al menos una letra y un número
+                'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
+            ],
+        ]);
+    
+        // Verificar si la validación falla
+        if ($validator->fails()) {
+            $errors = $validator->errors();
+    
+            // Error de nombre requerido (Required name error)
+            if ($errors->has('name')) {
+                return response()->json([
+                    'error' => 'El nombre es requerido.', // Spanish error message
+                    'error_en' => 'Name is required.' // English error message
+                ], 422);
+            }
+    
+            // Error de formato de correo electrónico (Invalid email format error)
+            if ($errors->has('email')) {
+                return response()->json([
+                    'error' => 'El formato del correo electrónico es inválido o ya hay un usuario registrado con ese correo electrónico.', // Spanish error message
+                    'error_en' => 'Invalid email format or user with that email already exists.' // English error message
+                ], 422);
+            }
+    
+            // Error de contraseña requerida y restricciones (Required password and constraints error)
+            if ($errors->has('password')) {
+                return response()->json([
+                    'error' => 'La contraseña es requerida y debe tener al menos 8 caracteres, incluyendo al menos una letra y un número.', // Spanish error message
+                    'error_en' => 'Password is required and must be at least 8 characters long, including at least one letter and one number.' // English error message
+                ], 422);
+            }
+        }
+    
+        // Crear un nuevo usuario (Create a new user)
+        $user = new User();
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->password = Hash::make($request->password);
+        $user->save();
+    
+        // Enviar correo electrónico de verificación (Send verification email)
         $user->sendEmailVerificationNotification();
-        return response()->json(['message' => 'Por favor, verifica tu correo electrónico para completar el proceso de registro.'], 401);
-    }
-
-    // Verificar si la contraseña coincide
-    if (!Hash::check($request->password, $user->password)) {
-        return response()->json(['error' => 'Contraseña incorrecta.'], 401);
+    
+        // Responder con una confirmación (Respond with a confirmation)
+        return response()->json(['message' => 'User registered successfully. Please check your email.'], 200);
     }
     
-    // Generar un token de autenticación de sesión
-    $sessionToken = $user->createToken('session_token')->plainTextToken;
 
-    // Verificar si ya tiene un token de "recordar"
-    $rememberToken = $user->remember_token;
-
-    // Si no tiene un token de "recordar", generarlo y guardarlo en la base de datos
-    if (!$rememberToken) {
-        $rememberToken = $user->createToken('remember_token')->plainTextToken;
-        $user->update(['remember_token' => $rememberToken]);
-    }
-
-    // Autenticación exitosa
-    return response()->json([
-        'user' => $user, 
-        'session_token' => $sessionToken, 
-        'remember_token' => $rememberToken,
-    ]);
-}
-
-public function compareTokens(Request $request)
-{
-    // Validar que el cuerpo de la solicitud contenga el token enviado desde el frontend
-    $validator = Validator::make($request->all(), [
-        'front_token' => 'required|string',
-    ]);
-
-    // Verificar si la validación falla
-    if ($validator->fails()) {
-        // Error de validación
-        return response()->json(['error' => 'El token enviado desde el frontend es inválido o no está presente.'], 422);
-    }
-
-    // Obtener el usuario autenticado mediante el token de "recordar"
-    $user = User::where('remember_token', $request->front_token)->first();
-
-    // Verificar si se encontró un usuario con ese token de "recordar"
-    if (!$user) {
-        // No se encontró ningún usuario con el token proporcionado
-        return response()->json(['error' => 'El token de recordar no coincide con ningún usuario.'], 401);
-    }
-
-    // Autenticar automáticamente al usuario
-    Auth::login($user);
-
-    // Generar un token de autenticación de sesión para el usuario
-    $sessionToken = $user->createToken('session_token')->plainTextToken;
-
-    // Autenticación exitosa
-    return response()->json([
-        'user' => $user, 
-        'session_token' => $sessionToken,
-    ]);
-}
-
-
-
-public function logout(Request $request)
-{
-    // Verificar si el usuario está autenticado
-    if (!$request->user()) {
-        // Usuario no autenticado
-        return response()->json(['error' => 'No se puede cerrar sesión porque el usuario no está autenticado.'], 401);
-    }
-
-    // Revocar todos los tokens del usuario autenticado (incluyendo el token de remember)
-    $request->user()->tokens()->delete();
+    public function verify(Request $request)
+    {
+        // Verificar si la URL está firmada correctamente (Check if URL is properly signed)
+        if (!URL::hasValidSignature($request)) {
+            // URL de verificación no válida (Invalid verification URL)
+            return response()->json(['error' => 'Invalid verification URL.'], 401);
+        }
     
-    // Sesión cerrada exitosamente
-    return response()->json(['message' => 'Sesión cerrada exitosamente.'], 200);
-}
-
-public function register(Request $request)
-{
-    // Validar los datos del formulario
-    $validator = Validator::make($request->all(), [
-        'name' => 'required|string',
-        'email' => 'required|email|unique:users,email',
-        'password' => [
-            'required',
-            'string',
-            'min:8',
-            // Utilizar una expresión regular para asegurarse de que la contraseña contenga al menos una letra y un número
-            'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
-        ],
-    ]);
-
-    // Verificar si la validación falla
-    if ($validator->fails()) {
-        $errors = $validator->errors();
-
-        // Error de nombre requerido
-        if ($errors->has('name')) {
-            return response()->json(['error' => 'El nombre es requerido.'], 422);
+        // Buscar al usuario por su ID (Find the user by ID)
+        $user = User::findOrFail($request->id);
+    
+        // Verificar si el usuario ya está verificado (Check if the user is already verified)
+        if ($user->hasVerifiedEmail()) {
+            // Usuario ya verificado (User already verified)
+            return response()->json(['message' => 'The user has already been verified.'], 409);
         }
-
-        // Error de formato de correo electrónico
-        if ($errors->has('email')) {
-            return response()->json(['error' => 'El formato del correo electrónico es inválido.'], 422);
-        }
-
-        // Error de contraseña requerida
-        if ($errors->has('password')) {
-            return response()->json(['error' => 'La contraseña es requerida y debe tener al menos 8 caracteres, incluyendo al menos una letra y un número.'], 422);
-        }
+    
+        // Marcar al usuario como verificado (Mark the user as verified)
+        $user->markEmailAsVerified();
+    
+        // Correo electrónico verificado correctamente (Email verified successfully)
+        return response()->json(['message' => 'Email verified successfully.'], 200);
     }
+    
 
-    // Crear un nuevo usuario
-    $user = new User();
-    $user->name = $request->name;
-    $user->email = $request->email;
-    $user->password = Hash::make($request->password);
-    $user->save();
 
-    // Enviar correo electrónico de verificación
-    $user->sendEmailVerificationNotification();
-
-    // Responder con una confirmación
-    return response()->json(['message' => 'Usuario registrado correctamente. Se ha enviado un correo electrónico de verificación.'],200);
-} 
-
-public function verify(Request $request)
-{
-    // Verificar si la URL está firmada correctamente
-    if (!URL::hasValidSignature($request)) {
-        // URL de verificación no válida
-        return response()->json(['error' => 'URL de verificación no válida.'], 401);
-    }
-
-    // Buscar al usuario por su ID
-    $user = User::findOrFail($request->id);
-
-    // Verificar si el usuario ya está verificado
-    if ($user->hasVerifiedEmail()) {
-        // Usuario ya verificado
-        return response()->json(['message' => 'El usuario ya ha sido verificado anteriormente.'], 409);
-    }
-
-    // Marcar al usuario como verificado
-    $user->markEmailAsVerified();
-
-    // Correo electrónico verificado correctamente
-    return response()->json(['message' => 'Correo electrónico verificado correctamente.'], 200);
-}
-
-      
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(User $user)
-    {
-        //
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(User $user)
-    {
-        //
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, User $user)
-    {
-        //
-    }
 
     /**
      * Remove the specified resource from storage.
      */
     
      public function deleteAccount(Request $request)
-     {
-         // Obtener el usuario autenticado
-         $user = Auth::user();
-     
-         // Verificar si el usuario está autenticado
-         if (!$user) {
-             // Usuario no autenticado
-             return response()->json(['error' => 'Usuario no autenticado.'], 401);
-         }
-     
-         // Eliminar el usuario de la base de datos
-         $request->user()->delete();
-     
-         // Desconectar al usuario
-         $request->user()->tokens()->delete();
-         
-         // Cuenta eliminada correctamente
-         return response()->json(['message' => 'Cuenta eliminada correctamente.']);
-     }
-     
+{
+    // Obtener el usuario autenticado (Get the authenticated user)
+    $user = Auth::user();
 
-     public function forgotPassword(Request $request)
-     {
-         // Validar el correo electrónico proporcionado
-         $request->validate(['email' => 'required|email']);
-     
-         // Generar un token de restablecimiento de contraseña y enviar el correo
-         $status = Password::sendResetLink(
-             $request->only('email')
-         );
-     
-         // Verificar el estado del envío del correo electrónico
-         if ($status === Password::RESET_LINK_SENT) {
-             // Correo electrónico enviado con éxito
-             return response()->json(['message' => 'Correo electrónico enviado con éxito.'], 200);
-         } else {
-             // No se pudo enviar el correo electrónico
-             return response()->json(['error' => 'No se pudo enviar el correo electrónico.'], 400);
-         }
-     }
+    // Verificar si el usuario está autenticado (Check if the user is authenticated)
+    if (!$user) {
+        // Usuario no autenticado (Unauthenticated user)
+        return response()->json(['error' => 'Unauthenticated user.'], 401);
+    }
+
+    // Eliminar el usuario de la base de datos (Delete the user from the database)
+    $request->user()->delete();
+
+    // Desconectar al usuario (Logout the user)
+    $request->user()->tokens()->delete();
+    
+    // Cuenta eliminada correctamente (Account deleted successfully)
+    return response()->json(['message' => 'Account deleted successfully.']);
+}
+
+
+public function forgotPassword(Request $request)
+{
+    // Validate the provided email
+    $request->validate(['email' => 'required|email']);
+    
+    // Generate a password reset token and send the email
+    $status = Password::sendResetLink(
+        $request->only('email')
+    );
+    
+    // Check the status of the email sending
+    if ($status === Password::RESET_LINK_SENT) {
+        // Email sent successfully
+        return response()->json(['message' => 'Email sent successfully.'], 200);
+    } else {
+        // Failed to send email
+        return response()->json(['error' => 'Failed to send email.'], 400);
+    }
+}
+
      
 
     //  public function resetPassword(Request $request)

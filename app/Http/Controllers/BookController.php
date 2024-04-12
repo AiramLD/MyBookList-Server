@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Book;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Validator;
 
 class BookController extends Controller
 {
@@ -19,47 +20,41 @@ class BookController extends Controller
         return $books;
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function addBook(Request $request)
     {
-        // No es necesario implementar esta acción si no estás usando vistas para crear libros
-    }
-
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
-{
-    // Validar los datos del libro
-    $request->validate([
-        'id' => 'required|unique:books',
-        'title' => 'required|string',
-        'publishedDate' => 'required',
-        'num_pages'=> 'required|numeric',
-    ]);
-
-    // Verificar si ya existe un libro con el mismo ID
-    if (Book::where('id', $request->id)->exists()) {
-        return response()->json(['error' => 'Ya existe un libro con este ID.'], 409);
-    }
-
-    // Crear un nuevo libro con los datos proporcionados por el usuario
-    $book = new Book();
+        // Validate book data
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|unique:books',
+            'title' => 'required|string',
+            'publishedDate' => 'required',
+            'num_pages' => 'required|numeric',
+        ]);
     
-    $book->id = $request->input('id');
-    $book->title = $request->input('title');
-    $book->publishedDate = $request->input('publishedDate');
-    $book->num_pages = $request->input('num_pages');
-    // Puedes agregar más campos según los datos que recibas de la API de Google Books
-
-    // Guardar el libro en la base de datos
-    $book->save();
-
-    // Responder con un mensaje de éxito
-    return response()->json(['message' => 'Libro guardado correctamente.']);
-}
+        // Check if validation fails
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 400);
+        }
+    
+        // Check if a book with the same ID already exists
+        if (Book::where('id', $request->id)->exists()) {
+            return response()->json(['errors' => ['id' => 'A book with this ID already exists.']], 409);
+        }
+    
+        // Create a new book with the data provided by the user
+        $book = new Book();
+        $book->id = $request->input('id');
+        $book->title = $request->input('title');
+        $book->publishedDate = $request->input('publishedDate');
+        $book->num_pages = $request->input('num_pages');
+        // You can add more fields depending on the data you receive from the Google Books API
+    
+        // Save the book to the database
+        $book->save();
+    
+        // Respond with a success message
+        return response()->json(['message' => 'Book saved successfully.']);
+    }
+    
 
     /**
      * Display the specified resource.
@@ -68,15 +63,16 @@ class BookController extends Controller
     {
         // Buscar el libro por su ID
         $book = Book::find($id);
-
+    
         // Verificar si el libro existe
         if (!$book) {
-            return response()->json(['error' => 'El libro no se encontró.'], 404);
+            return response()->json(['errors' => ['id' => 'The book was not found.']], 404);
         }
-
+    
         // Retornar el libro encontrado
         return response()->json($book);
     }
+    
 
     /**
      * Show the form for editing the specified resource.
@@ -91,70 +87,54 @@ class BookController extends Controller
      */
     public function update(Request $request, Book $book)
     {
-        // Validar los datos del formulario (opcional)
+        // Validate form data (optional)
         $request->validate([
             'title' => 'required|string',
-            // Aquí puedes agregar más reglas de validación según tus necesidades
+            // You can add more validation rules according to your needs
         ]);
     
-        // Verificar si el libro existe
+        // Check if the book exists
         if (!$book) {
-            return response()->json(['error' => 'El libro no se encontró.'], 404);
+            return response()->json(['error' => 'The book was not found.'], 404);
         }
     
-        // Actualizar el libro con los datos recibidos del formulario
+        // Update the book with the data received from the form
         $updated = $book->update([
             'title' => $request->input('title'),
-            // Aquí puedes asignar valores a otras columnas si es necesario
+            // You can assign values to other columns if necessary
         ]);
     
-        // Verificar si se pudo actualizar el libro
+        // Check if the book was successfully updated
         if ($updated) {
-            // Devolver el libro actualizado como respuesta
+            // Return the updated book as response
             return $book;
         } else {
-            return response()->json(['error' => 'No se pudo actualizar el libro.'], 400);
+            return response()->json(['error' => 'The book could not be updated.'], 400);
         }
     }
     
-    /**
-     * Remove the specified resource from storage.
-     */
+    
+
     public function destroy(Book $book)
     {
-        // Verificar si el libro existe
+        // Check if the book exists
         if (!$book) {
-            return response()->json(['error' => 'El libro no se encontró.'], 404);
+            return response()->json(['error' => 'The book was not found.'], 404);
         }
     
-        // Intentar eliminar el libro
+        // Try to delete the book
         try {
-            // Eliminar el libro especificado
+            // Delete the specified book
             $book->delete();
     
-            // Devolver una respuesta de éxito
-            return response()->json(['message' => 'Libro eliminado exitosamente'], 200);
+            // Return a success response
+            return response()->json(['message' => 'Book deleted successfully.'], 200);
         } catch (\Exception $e) {
-            // Manejar el caso en el que no se pueda eliminar el libro
-            return response()->json(['error' => 'No se pudo eliminar el libro.'], 400);
+            // Handle the case where the book cannot be deleted
+            return response()->json(['error' => 'The book could not be deleted.'], 400);
         }
     }
     
     
-    // public function feedback(Request $request, $book_id) {
-    //     // Verificar si el usuario está autenticado, puede depender de tu sistema de autenticación
-    //     $user = auth()->user();
-    //     if (!$user) {
-    //         return response()->json(['error' => 'Usuario no autenticado.'], 401);
-    //     }else{
-    //         $book = Book::find($book_id);
-    //         if (!$book) {
-    //             return response()->json(['error' => 'No se encontró el libro.'], 404);
-    //         }
-    //         $book->feedback = $request->input('feedback');
-    //         $book->save();
-    //         return response()->json($book);
-    //     }
-
-    // }
+ 
 }
