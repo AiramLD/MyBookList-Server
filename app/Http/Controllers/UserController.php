@@ -156,18 +156,18 @@ class UserController extends Controller
         
         // Check if the user already has a "remember" token
         if($request->remember) {
-            $rememberToken = $user->createToken('remember_token')->plainTextToken;
-            $user->update(['remember_token' => $rememberToken]);
-            $response['remember_token'] = $rememberToken;
+            $rememberToken = $user->createToken('rememberToken')->plainTextToken;
+            $user->update(['rememberToken' => $rememberToken]);
+            $response['rememberToken'] = $rememberToken;
         }else{
-            $user->update(['remember_token' => null]);
+            $user->update(['rememberToken' => null]);
             }
 
     
         // Successful authentication
-        return response()->json([
+        return response()->json(
             $response,
-        ], 200);
+             200);
     }
 
 
