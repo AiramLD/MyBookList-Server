@@ -162,49 +162,49 @@ class UserController extends Controller
                 // Utilizar una expresión regular para asegurarse de que la contraseña contenga al menos una letra y un número
                 'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
             ],
+            'password_confirmation' => 'required|same:password',
         ]);
-    
+
+
+        
         // Verificar si la validación falla
         if ($validator->fails()) {
+            
+                $mistakes = [
+                    'errors' => null,
+                    
+                ];
             $errors = $validator->errors();
-    
+            
             // Error de nombre requerido (Required name error)
             if ($errors->has('name')) {
-                return response()->json([
-                    'error' => 'El nombre es requerido.', // Spanish error message
-                    'error_en' => 'Name is required.' // English error message
-                ], 422);
+                $mistakes['error']['name'] = 'Name is required.'; // English error message
             }
-    
+            
             // Error de formato de correo electrónico (Invalid email format error)
             if ($errors->has('email')) {
-                return response()->json([
-                    'error' => 'El formato del correo electrónico es inválido o ya hay un usuario registrado con ese correo electrónico.', // Spanish error message
-                    'error_en' => 'Invalid email format or user with that email already exists.' // English error message
-                ], 422);
+                $mistakes['error']['email'] = 'Invalid email format.'; // English error message
             }
-    
+            
             // Error de contraseña requerida y restricciones (Required password and constraints error)
             if ($errors->has('password')) {
-                return response()->json([
-                    'error' => 'La contraseña es requerida y debe tener al menos 8 caracteres, incluyendo al menos una letra y un número.', // Spanish error message
-                    'error_en' => 'Password is required and must be at least 8 characters long, including at least one letter and one number.' // English error message
-                ], 422);
+                $mistakes['error']['password'] = 'Password is required and must contain at least one letter and one number.'; // English error message
             }
+            return response()->json($mistakes, 400);
+        }else{
+            // Crear un nuevo usuario (Create a new user)
+            $user = new User();
+            $user->name = $request->name;
+            $user->email = $request->email;
+            $user->password = Hash::make($request->password);
+            $user->save();
+            
+            // Enviar correo electrónico de verificación (Send verification email)
+            $user->sendEmailVerificationNotification();
+            
+            // Responder con una confirmación (Respond with a confirmation)
+            return response()->json(['message' => 'User registered successfully. Please check your email.'], 200);
         }
-    
-        // Crear un nuevo usuario (Create a new user)
-        $user = new User();
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->password = Hash::make($request->password);
-        $user->save();
-    
-        // Enviar correo electrónico de verificación (Send verification email)
-        $user->sendEmailVerificationNotification();
-    
-        // Responder con una confirmación (Respond with a confirmation)
-        return response()->json(['message' => 'User registered successfully. Please check your email.'], 200);
     }
     
 
