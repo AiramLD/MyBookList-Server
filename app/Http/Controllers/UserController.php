@@ -74,6 +74,10 @@ class UserController extends Controller
                 $response['errors']['email'] = 'Invalid email format.'; // English error message
             }
             
+            if ($errors->has('email')) {
+                $response['errors']['email'] = 'The email has already been taken.'; // English error message
+            }
+            
             // Error de contraseña requerida y restricciones (Required password and constraints error)
             if ($errors->has('password')) {
                 $response['errors']['password'] = 'Password is required and must contain at least one letter and one number.'; // English error message
@@ -110,42 +114,38 @@ class UserController extends Controller
         // Check if validation fails
         if ($validator->fails()) {
 
-            // $response = [
-            //     'errors' => null,
-            // ];
+            $response = [
+                'errors' => null,
+            ];
 
-            // $errors = $validator->errors();
+            $errors = $validator->errors();
 
-            // if($errors->has('email')) {
-            //     $response['errors']['email'] = 'Email is required.'; // English error message
-            // }
-            // if($errors->has('password')) {
-            //     $response['errors']['password'] = 'Password is required.'; // English error message
-            // }
-            return response()->json(['errors' => $validator->errors()], 401);
+            if($errors->has('email')) {
+                $response['errors']['email'] = 'Email is required.'; // English error message
+            }
+            if($errors->has('password')) {
+                $response['errors']['password'] = 'Password is required.'; // English error message
+            }
+            return response()->json($response, 401);
         }
     
+
+        
         // Get the user by email address
         $user = User::where('email', $request->email)->first();
     
         // Check if the user exists
         if (!$user) {
-            return response()->json(['errors' => ['email' => 'No user found with that email address.']], 401);
+            return response()->json(['errors' => ['email' => 'No user found with that email address.']], 422);
+        }else{
+            // Check if the user has verified their email
+            if (!$user->hasVerifiedEmail()) {
+                // If the user has not verified their email, send the verification email
+                $user->sendEmailVerificationNotification();
+                return response()->json(['errors' => ['email' => 'Please verify your email to complete the registration process.']], 403);
+            }    
         }
     
-        // Check if the user has verified their email
-        if (!$user->hasVerifiedEmail()) {
-            // If the user has not verified their email, send the verification email
-            $user->sendEmailVerificationNotification();
-            return response()->json(['message' => 'Please verify your email to complete the registration process.'], 401);
-        }
-    
-        
-        // Check if the password matches
-        if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['errors' => ['password' => 'Incorrect password.']], 401);
-        }
-        
       
         // Generate a session authentication token
         $sessionToken = $user->createToken('session_token')->plainTextToken;
@@ -161,7 +161,6 @@ class UserController extends Controller
             $response['remember_token'] = $rememberToken;
         }else{
             $user->update(['remember_token' => null]);
-
             }
 
     
@@ -170,88 +169,67 @@ class UserController extends Controller
             $response,
         ], 200);
     }
+
+
+
     
-    public function getUser(Request $request){
-        // Validate the token sent from the frontend
-        $validator = Validator::make($request->all(), [
-            'sessionToken' => 'required|string',
-        ]);
+public function getUser(Request $request)
+{
+    // Obtener el token de sesión de la cabecera de autorización
+    $sessionToken = $request->bearerToken();
 
-        // Prepare the array to hold errors
-        $response = [
-            'errors' => [],
-        ];
-
-        // Check if validation fails
-        if ($validator->fails()) {
-            // Error: Session token is required
-            if ($validator->errors()->has('sessionToken')) {
-                $response['errors']['sessionToken'] = 'Session token is required.';
-            }
-
-            // Return response with errors
-            return response()->json($response, 400);
-        }
-
-        // Get the authenticated user using the session token
-        $user = User::where('session_token', $request->sessionToken)->first();
-
-        // Check if a user with that session token was found
-        if (!$user) {
-            // No user found with the provided token
-            $response['errors']['sessionToken'] = 'The session token does not match any user.';
-            return response()->json($response, 401);
-        }
-
-        // Automatically authenticate the user
-        Auth::login($user);
-
-        // Generate a session authentication token for the user
-        $sessionToken = $user->createToken('session_token')->plainTextToken;
-
-        // Successful authentication
-        return response()->json([
-            'user' => $user, 
-        ]);
-        }
-
-    public function compareTokens(Request $request)
-    {
-        // Validate that the request body contains the token sent from the frontend
-        $validator = Validator::make($request->all(), [
-            'rememberToken' => 'required|string',
-        ]);
-    
-        // Check if validation fails
-        if ($validator->fails()) {
-            // Validation error
-            return response()->json(['errors' => $validator->errors()], 400);
-        }
-    
-        // Get the authenticated user using the "remember" token
-        $user = User::where('remember_token', $request->rememberToken)->first();
-    
-        // Check if a user with that "remember" token was found
-        if (!$user) {
-            // No user found with the provided token
-            return response()->json(['errors' => ['rememberToken' => 'The remember token does not match any user.']], 401);
-        }
-    
-        // Automatically authenticate the user
-        Auth::login($user);
-    
-        // Generate a session authentication token for the user
-        $sessionToken = $user->createToken('session_token')->plainTextToken;
-    
-        // Successful authentication
-        return response()->json([
-            'user' => $user, 
-            'session_token' => $sessionToken,
-        ]);
+    // Verificar si se proporcionó un token de sesión
+    if (!$sessionToken) {
+        // No se proporcionó un token de sesión en el encabezado de autorización
+        return response()->json(['errors' => ['sessionToken' => 'No session token provided in the Authorization header.']], 401);
     }
-    
+
+    // Obtener el ID del token de acceso personal desde el encabezado de autorización
+    $tokenId = $request->user()->currentAccessToken()->id;
+
+    // Obtener el usuario asociado al token de acceso personal
+    $user = $request->user();
+
+    // Verificar si se encontró un usuario asociado al token de acceso personal
+    if (!$user) {
+        // No se encontró ningún usuario asociado al token de acceso personal
+        return response()->json(['errors' => ['sessionToken' => 'No user found with the provided personal access token.']], 401);
+    }
+
+    // Éxito: devolver el usuario
+    return response()->json(['user' => $user]);
+}
 
 
+public function compareTokens(Request $request)
+{
+   // Obtener el token de recordatorio de la cabecera de autorización
+   $rememberToken = $request->bearerToken();
+
+   // Verificar si se proporcionó un token de recordatorio
+   if (!$rememberToken) {
+       // No se proporcionó un token de recordatorio en el encabezado de autorización
+       return response()->json(['errors' => ['rememberToken' => 'No remember token provided in the Authorization header.']], 401);
+   }
+
+   // Obtener el ID del token de acceso personal desde el encabezado de autorización
+   $tokenId = $request->user()->currentAccessToken()->id;
+
+   // Obtener el usuario asociado al token de acceso personal
+   $user = $request->user();
+
+   // Verificar si se encontró un usuario asociado al token de acceso personal
+   if (!$user) {
+       // No se encontró ningún usuario asociado al token de acceso personal
+       return response()->json(['errors' => ['rememberToken' => 'No user found with the provided personal access token.']], 401);
+   }
+
+   $sessionToken = $user->createToken('session_token')->plainTextToken;
+
+
+   // Éxito: devolver el usuario
+   return response()->json(['session_token' => $sessionToken]);
+}
     public function logout(Request $request)
     {
         // Check if the user is authenticated
