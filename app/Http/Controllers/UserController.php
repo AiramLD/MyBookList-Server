@@ -37,9 +37,67 @@ class UserController extends Controller
         
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    public function register(Request $request)
+    {
+        // Validar los datos del formulario
+        $validator = Validator::make($request->all(), [
+            'name' => 'required|string',
+            'email' => 'required|email|unique:users,email',
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+                // Utilizar una expresión regular para asegurarse de que la contraseña contenga al menos una letra y un número
+                'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
+            ],
+            'password_confirmation' => 'required|same:password',
+        ]);
+
+
+        
+        // Verificar si la validación falla
+        if ($validator->fails()) {
+            
+                $response = [
+                    'errors' => null,
+                    
+                ];
+            $errors = $validator->errors();
+           
+            // Error de nombre requerido (Required name error)
+            if ($errors->has('name')) {
+                $response['errors']['name'] = 'Name is required.'; // English error message
+            }
+            
+            // Error de formato de correo electrónico (Invalid email format error)
+            if ($errors->has('email')) {
+                $response['errors']['email'] = 'Invalid email format.'; // English error message
+            }
+            
+            // Error de contraseña requerida y restricciones (Required password and constraints error)
+            if ($errors->has('password')) {
+                $response['errors']['password'] = 'Password is required and must contain at least one letter and one number.'; // English error message
+            }
+            if ($errors->has('password_confirmation')) {
+                $response['errors']['password_confirmation'] = 'Password must be the same.'; // English error message
+            }
+            return response()->json($response, 400);
+        }else{
+            // Crear un nuevo usuario (Create a new user)
+            $user = new User();
+            $user->name = $request->name;
+            $user->email = $request->email;
+            $user->password = Hash::make($request->password);
+            $user->save();
+            
+            // Enviar correo electrónico de verificación (Send verification email)
+            $user->sendEmailVerificationNotification();
+            
+            // Responder con una confirmación (Respond with a confirmation)
+            return response()->json(['message' => 'User registered successfully. Please check your email.'], 200);
+        }
+    }
+    
     public function login(Request $request)
     {
         // Validate form data
@@ -51,7 +109,20 @@ class UserController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 400);
+
+            // $response = [
+            //     'errors' => null,
+            // ];
+
+            // $errors = $validator->errors();
+
+            // if($errors->has('email')) {
+            //     $response['errors']['email'] = 'Email is required.'; // English error message
+            // }
+            // if($errors->has('password')) {
+            //     $response['errors']['password'] = 'Password is required.'; // English error message
+            // }
+            return response()->json(['errors' => $validator->errors()], 401);
         }
     
         // Get the user by email address
@@ -59,48 +130,96 @@ class UserController extends Controller
     
         // Check if the user exists
         if (!$user) {
-            return response()->json(['errors' => ['email' => 'No user found with that email address.']], 400);
+            return response()->json(['errors' => ['email' => 'No user found with that email address.']], 401);
         }
     
         // Check if the user has verified their email
         if (!$user->hasVerifiedEmail()) {
             // If the user has not verified their email, send the verification email
             $user->sendEmailVerificationNotification();
-            return response()->json(['message' => 'Please verify your email to complete the registration process.'], 400);
+            return response()->json(['message' => 'Please verify your email to complete the registration process.'], 401);
         }
     
+        
         // Check if the password matches
         if (!Hash::check($request->password, $user->password)) {
-            return response()->json(['errors' => ['password' => 'Incorrect password.']], 400);
+            return response()->json(['errors' => ['password' => 'Incorrect password.']], 401);
         }
         
+      
         // Generate a session authentication token
         $sessionToken = $user->createToken('session_token')->plainTextToken;
-    
+        
+        $response=[
+         'session_token' => $sessionToken,
+        ];
+        
         // Check if the user already has a "remember" token
-        $rememberToken = $user->remember_token;
-    
-        // If the user does not have a "remember" token, generate and save it in the database
-        if (!$rememberToken) {
+        if($request->remember) {
             $rememberToken = $user->createToken('remember_token')->plainTextToken;
             $user->update(['remember_token' => $rememberToken]);
-        }
+            $response['remember_token'] = $rememberToken;
+        }else{
+            $user->update(['remember_token' => null]);
+
+            }
+
     
         // Successful authentication
         return response()->json([
-            'user' => $user, 
-            'session_token' => $sessionToken, 
-            'remember_token' => $rememberToken,
+            $response,
         ], 200);
     }
     
-    
+    public function getUser(Request $request){
+        // Validate the token sent from the frontend
+        $validator = Validator::make($request->all(), [
+            'sessionToken' => 'required|string',
+        ]);
+
+        // Prepare the array to hold errors
+        $response = [
+            'errors' => [],
+        ];
+
+        // Check if validation fails
+        if ($validator->fails()) {
+            // Error: Session token is required
+            if ($validator->errors()->has('sessionToken')) {
+                $response['errors']['sessionToken'] = 'Session token is required.';
+            }
+
+            // Return response with errors
+            return response()->json($response, 400);
+        }
+
+        // Get the authenticated user using the session token
+        $user = User::where('session_token', $request->sessionToken)->first();
+
+        // Check if a user with that session token was found
+        if (!$user) {
+            // No user found with the provided token
+            $response['errors']['sessionToken'] = 'The session token does not match any user.';
+            return response()->json($response, 401);
+        }
+
+        // Automatically authenticate the user
+        Auth::login($user);
+
+        // Generate a session authentication token for the user
+        $sessionToken = $user->createToken('session_token')->plainTextToken;
+
+        // Successful authentication
+        return response()->json([
+            'user' => $user, 
+        ]);
+        }
 
     public function compareTokens(Request $request)
     {
         // Validate that the request body contains the token sent from the frontend
         $validator = Validator::make($request->all(), [
-            'front_token' => 'required|string',
+            'rememberToken' => 'required|string',
         ]);
     
         // Check if validation fails
@@ -110,12 +229,12 @@ class UserController extends Controller
         }
     
         // Get the authenticated user using the "remember" token
-        $user = User::where('remember_token', $request->front_token)->first();
+        $user = User::where('remember_token', $request->rememberToken)->first();
     
         // Check if a user with that "remember" token was found
         if (!$user) {
             // No user found with the provided token
-            return response()->json(['errors' => ['front_token' => 'The remember token does not match any user.']], 401);
+            return response()->json(['errors' => ['rememberToken' => 'The remember token does not match any user.']], 401);
         }
     
         // Automatically authenticate the user
@@ -146,65 +265,6 @@ class UserController extends Controller
         
         // Session closed successfully
         return response()->json(['message' => 'Session closed successfully.'], 200);
-    }
-    
-
-    public function register(Request $request)
-    {
-        // Validar los datos del formulario
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string',
-            'email' => 'required|email|unique:users,email',
-            'password' => [
-                'required',
-                'string',
-                'min:8',
-                // Utilizar una expresión regular para asegurarse de que la contraseña contenga al menos una letra y un número
-                'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
-            ],
-            'password_confirmation' => 'required|same:password',
-        ]);
-
-
-        
-        // Verificar si la validación falla
-        if ($validator->fails()) {
-            
-                $mistakes = [
-                    'errors' => null,
-                    
-                ];
-            $errors = $validator->errors();
-            
-            // Error de nombre requerido (Required name error)
-            if ($errors->has('name')) {
-                $mistakes['error']['name'] = 'Name is required.'; // English error message
-            }
-            
-            // Error de formato de correo electrónico (Invalid email format error)
-            if ($errors->has('email')) {
-                $mistakes['error']['email'] = 'Invalid email format.'; // English error message
-            }
-            
-            // Error de contraseña requerida y restricciones (Required password and constraints error)
-            if ($errors->has('password')) {
-                $mistakes['error']['password'] = 'Password is required and must contain at least one letter and one number.'; // English error message
-            }
-            return response()->json($mistakes, 400);
-        }else{
-            // Crear un nuevo usuario (Create a new user)
-            $user = new User();
-            $user->name = $request->name;
-            $user->email = $request->email;
-            $user->password = Hash::make($request->password);
-            $user->save();
-            
-            // Enviar correo electrónico de verificación (Send verification email)
-            $user->sendEmailVerificationNotification();
-            
-            // Responder con una confirmación (Respond with a confirmation)
-            return response()->json(['message' => 'User registered successfully. Please check your email.'], 200);
-        }
     }
     
 
