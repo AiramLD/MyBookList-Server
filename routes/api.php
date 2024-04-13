@@ -67,8 +67,7 @@ Route::middleware('auth:sanctum')->delete('/user-books', [UserBookController::cl
 
 
 //remember token
-Route::post('/compare-remember-tokens', [UserController::class, 'compareTokens']);
+Route::get('/compare-remember-tokens', [UserController::class, 'compareTokens']);
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+//get User
+Route::get('/user', [UserController::class, 'getUser'])->middleware('auth:sanctum');
