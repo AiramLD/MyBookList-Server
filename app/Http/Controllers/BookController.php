@@ -20,44 +20,21 @@ class BookController extends Controller
         return $books;
     }
 
-    public function addBook(Request $request)
+    private function addBook(Request $request)
     {
         // Validate book data
         $validator = Validator::make($request->all(), [
             'id' => 'required|unique:books',
             'title' => 'required|string',
-            'publishedDate' => 'required',
+            'publishedDate' => 'nullable|date',
             'num_pages' => 'required|numeric',
         ]);
-    
+
         // Check if validation fails
         if ($validator->fails()) {
-            $response = [
-                'errors' => null,
-            ];
-
-            $errors => $validator->errors();
-
-            if($errors->has('id')) {
-                $response['errors']['id'] = 'A book with this ID already exists.'; // English error message
-            }
-            if($errors->has('title')) {
-                $response['errors']['title'] = 'Title is required.'; // English error message
-            }
-            if($errors->has('publishedDate')) {
-                $response['errors']['publishedDate'] = 'Published date is required.'; // English error message
-            }
-            if($errors->has('num_pages')) {
-                $response['errors']['num_pages'] = 'Number of pages is required.'; // English error message
-            }
-            return response()->json($response, 409);
+            return response()->json(['errors' => $validator->errors()], 400);
         }
-    
-        // Check if a book with the same ID already exists
-        if (Book::where('id', $request->id)->exists()) {
-            return response()->json(['errors' => ['id' => 'A book with this ID already exists.']], 409);
-        }
-    
+
         // Create a new book with the data provided by the user
         $book = new Book();
         $book->id = $request->input('id');
@@ -65,14 +42,14 @@ class BookController extends Controller
         $book->publishedDate = $request->input('publishedDate');
         $book->num_pages = $request->input('num_pages');
         // You can add more fields depending on the data you receive from the Google Books API
-    
+
         // Save the book to the database
         $book->save();
-    
+
         // Respond with a success message
         return response()->json(['message' => 'Book saved successfully.']);
     }
-    
+
 
     /**
      * Display the specified resource.

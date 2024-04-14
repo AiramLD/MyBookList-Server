@@ -49,21 +49,21 @@ Route::get('/books/{id}', [BookController::class, 'show']);
 
 
 
-//UserBook Store
-Route::middleware('auth:sanctum')->post('/user-books', [UserBookController::class, 'store']);
+// //UserBook Store
+// Route::middleware('auth:sanctum')->post('/user-books', [UserBookController::class, 'store']);
 
-//UserBook Show
-Route::middleware('auth:sanctum')->post('/user-books/show', [UserBookController::class, 'show']);
+// //UserBook Show
+// Route::middleware('auth:sanctum')->post('/user-books/show', [UserBookController::class, 'show']);
 
-//UserBook Update
-Route::middleware('auth:sanctum')->put('/user-books', [UserBookController::class, 'update']);
+// //UserBook Update
+// Route::middleware('auth:sanctum')->put('/user-books', [UserBookController::class, 'update']);
 
 //No salen
 Route::post('forgot-password', [UserController::class, 'forgotPassword'])->name('password.email');
 Route::post('reset-password', [UserController::class, 'resetPassword'])->name('password.update');
 
-//delete UserBook
-Route::middleware('auth:sanctum')->delete('/user-books', [UserBookController::class, 'destroy']);
+// //delete UserBook
+// Route::middleware('auth:sanctum')->delete('/user-books', [UserBookController::class, 'destroy']);
 
 
 //remember token
@@ -71,3 +71,21 @@ Route::middleware('auth:sanctum')->get('/compare-tokens', [UserController::class
 
 //get User
 Route::get('/user', [UserController::class, 'getUser'])->middleware('auth:sanctum');
+
+    // Rutas para obtener libros por estado
+
+    Route::prefix('collection')->middleware('auth:sanctum')->group(function () {
+        Route::post('/store', [UserBookController::class, 'store']); // Crear un nuevo libro
+        Route::put('/update', [UserBookController::class, 'update']); // Actualizar un libro existente
+        Route::delete('/delete', [UserBookController::class, 'destroy']); // Eliminar un libro existente
+        Route::post('/show', [UserBookController::class, 'show']); // Mostrar un libro existente
+
+        Route::get('/reading', [UserBookController::class, 'getReading']); // Obtener libros leídos
+        Route::get('/pending', [UserBookController::class, 'getPending']); // Obtener libros pendientes
+        Route::get('/following', [UserBookController::class, 'getFollowing']); // Obtener libros en seguimiento
+        Route::get('/completed', [UserBookController::class, 'getCompleted']); // Obtener libros completados
+        Route::get('/dropped', [UserBookController::class, 'getDropped']); // Obtener libros abandonados
+        Route::get('/all-status', [UserBookController::class, 'getAllStatus']); // Obtener todos los estados de los libros
+    });
+    
+

@@ -15,6 +15,9 @@ return new class extends Migration
             $table->id(); // Clave primaria autoincremental
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
             $table->string('book_id')->constrained()->onDelete('cascade'); // Cambiar el tipo de dato a 'string'
+            $table->string('book_title');
+            $table->integer('num_pages');
+            $table->integer('current_page');
             $table->integer('progress');
             $table->integer('score');
             $table->string('status');
