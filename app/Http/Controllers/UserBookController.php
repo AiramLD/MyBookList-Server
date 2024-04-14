@@ -33,23 +33,43 @@ class UserBookController extends Controller
     
         // Check for validation errors
         if ($validator->fails()) {
+
+            $response = [
+                'errors' => null,
+            ]
             $errors = $validator->errors();
+
+            if($errors->has('user_id')) {
+                $response['errors']['user_id'] = 'User not found.'; // English error message
+            }
+            if($errors->has('book_id')) {
+                $response['errors']['book_id'] = 'Book not found.'; // English error message
+            }
+            if($errors->has('progress')) {
+                $response['errors']['progress'] = 'Progress must be between 0 and 100.'; // English error message
+            }
+            if($errors->has('score')) {
+                $response['errors']['score'] = 'Score must be between 1 and 5.'; // English error message
+            }
+            if($errors->has('status')) {
+                $response['errors']['status'] = 'Status must be one of: leido, pendiente, siguiendo, favorito, abandonado.'; // English error message
+            }
+            return response()->json($response, 404);
     
-            // Respond with validation error details
-            return response()->json(['error' => 'Validation error.', 'details' => $errors], 422);
+        }else{
+            // Create a new user-book entry
+            $userBook = new UserBook();
+            $userBook->user_id = $request->user_id;
+            $userBook->book_id = $request->book_id;
+            $userBook->progress = $request->progress ?? 0;
+            $userBook->score = $request->score ?? 0;
+            $userBook->status = $request->status;
+            $userBook->save();
+        
+            // Respond with a success message
+            return response()->json(['message' => 'Book saved to user list successfully.'], 201);
+
         }
-    
-        // Create a new user-book entry
-        $userBook = new UserBook();
-        $userBook->user_id = $request->user_id;
-        $userBook->book_id = $request->book_id;
-        $userBook->progress = $request->progress ?? 0;
-        $userBook->score = $request->score ?? 0;
-        $userBook->status = $request->status;
-        $userBook->save();
-    
-        // Respond with a success message
-        return response()->json(['message' => 'Book saved to user list successfully.'], 201);
     }
     
 
@@ -63,7 +83,21 @@ class UserBookController extends Controller
             'user_id' => 'required|exists:users,id',
             'book_id' => 'required|exists:books,id',
         ]);
-    
+        
+        if($validator->fails()) {
+            $response = [
+                'errors' => null,
+            ]
+            $errors = $validator->errors();
+            if($errors->has('user_id')) {
+                $response['errors']['user_id'] = 'The selected user id is invalid.'; // English error message
+            }
+            if($errors->has('book_id')) {
+                $response['errors']['book_id'] = 'The selected book id is invalid.'; // English error message
+            }
+            return response()->json($response, 404);
+        }
+
         // Obtener el user_id y el book_id de la solicitud
         $userId = $request->input('user_id');
         $bookId = $request->input('book_id');
@@ -83,9 +117,6 @@ class UserBookController extends Controller
         return response()->json($userBook);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
     public function edit(Request $request, UserBook $userBook)
 {
     // Buscar el libro del usuario por su ID
@@ -117,7 +148,28 @@ class UserBookController extends Controller
 
     // Check for validation errors
     if ($validator->fails()) {
-        return response()->json(['error' => 'Validation error.', 'details' => $validator->errors()], 422);
+
+        $response = [
+            'errors' => null,
+        ];
+        $errors = $validator->errors();
+
+        if($errors->has('user_id')) {
+            $response['errors']['user_id'] = 'User not found.'; // English error message
+        }
+        if($errors->has('book_id')) {
+            $response['errors']['book_id'] = 'Book not found.'; // English error message
+        }
+        if($errors->has('progress')) {
+            $response['errors']['progress'] = 'Progress must be between 0 and 100.'; // English error message
+        }
+        if($errors->has('score')) {
+            $response['errors']['score'] = 'Score must be between 1 and 5.'; // English error message
+        }
+        if($errors->has('status')) {
+            $response['errors']['status'] = 'Status must be one of: leido, pendiente, siguiendo, favorito, abandonado.'; // English error message
+        }
+        return response()->json($response, 404);
     }
 
     // Find the user_book record
@@ -157,6 +209,19 @@ class UserBookController extends Controller
         $request->validate([
             'user_book_id' => 'required|exists:user_books,id'
         ]);
+
+        if($validator->fails()) {
+
+            $response = [
+                'errors' => null,
+            ];
+            $errors = $validator->errors();
+
+            if($errors->has('user_book_id')) {
+                $response['errors']['user_book_id'] = 'User-book record not found.'; // English error message
+            }
+            return response()->json($response, 404);
+        }
     
         // Obtener el ID del libro de usuario desde la solicitud
         $userBookId = $request->input('user_book_id');
@@ -175,6 +240,4 @@ class UserBookController extends Controller
         // Devolver una respuesta de éxito
         return response()->json(['message' => 'User-book record deleted successfully.']);
     }
-    
-
 }

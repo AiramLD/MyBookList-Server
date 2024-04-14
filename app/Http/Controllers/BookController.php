@@ -32,7 +32,25 @@ class BookController extends Controller
     
         // Check if validation fails
         if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()], 400);
+            $response = [
+                'errors' => null,
+            ];
+
+            $errors => $validator->errors();
+
+            if($errors->has('id')) {
+                $response['errors']['id'] = 'A book with this ID already exists.'; // English error message
+            }
+            if($errors->has('title')) {
+                $response['errors']['title'] = 'Title is required.'; // English error message
+            }
+            if($errors->has('publishedDate')) {
+                $response['errors']['publishedDate'] = 'Published date is required.'; // English error message
+            }
+            if($errors->has('num_pages')) {
+                $response['errors']['num_pages'] = 'Number of pages is required.'; // English error message
+            }
+            return response()->json($response, 409);
         }
     
         // Check if a book with the same ID already exists
@@ -73,14 +91,6 @@ class BookController extends Controller
         return response()->json($book);
     }
     
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Book $book)
-    {
-        // No es necesario implementar esta acción si no estás usando vistas para editar libros
-    }
 
     /**
      * Update the specified resource in storage.
