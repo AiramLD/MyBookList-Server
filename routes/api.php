@@ -82,7 +82,7 @@ Route::get('/user', [UserController::class, 'getUser'])->middleware('auth:sanctu
 
         Route::get('/reading', [UserBookController::class, 'getReading']); // Obtener libros leídos
         Route::get('/pending', [UserBookController::class, 'getPending']); // Obtener libros pendientes
-        Route::get('/following', [UserBookController::class, 'getFollowing']); // Obtener libros en seguimiento
+        Route::get('/paused', [UserBookController::class, 'getPaused']); // Obtener libros en seguimiento
         Route::get('/completed', [UserBookController::class, 'getCompleted']); // Obtener libros completados
         Route::get('/dropped', [UserBookController::class, 'getDropped']); // Obtener libros abandonados
         Route::get('/all-status', [UserBookController::class, 'getAllStatus']); // Obtener todos los estados de los libros

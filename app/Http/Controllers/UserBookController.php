@@ -32,7 +32,7 @@ class UserBookController extends Controller
             'num_pages' => 'required|integer',
             'current_page' => 'required|integer|min:1|max:' . $request->num_pages,
             'score' => 'nullable|integer|min:1|max:5',
-            'status' => 'required|in:reading,pending,following,completed,dropped',
+            'status' => 'required|in:reading,pending,paused,completed,dropped',
         ]);
     
         // Check for validation errors
@@ -137,7 +137,7 @@ class UserBookController extends Controller
         'book_id' => 'required',
         'current_page' => 'required|integer|min:1',
         'score' => 'nullable|integer|min:1|max:5',
-        'status' => 'required|in:reading,pending,following,completed,dropped',
+        'status' => 'required|in:reading,pending,paused,completed,dropped',
     ]);
 
     if ($validator->fails()) {
@@ -286,7 +286,7 @@ public function destroy(Request $request)
     }
     
 
-    public function getFollowing(Request $request)
+    public function getPaused(Request $request)
     {
         // Obtener el usuario autenticado
         $user = $request->user();
@@ -301,7 +301,7 @@ public function destroy(Request $request)
     
         // Obtener los libros que el usuario está siguiendo sin incluir el ID autoincremental
         $books = UserBook::where('user_id', $userId)
-                        ->where('status', 'following')
+                        ->where('status', 'paused')
                         ->select(['user_id', 'book_id', 'book_title', 'num_pages','current_page','progress', 'score', 'status', 'created_at', 'updated_at'])
                         ->get();
     
