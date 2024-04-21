@@ -12,17 +12,26 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('user_books', function (Blueprint $table) {
-            $table->id(); // Clave primaria autoincremental
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
-            $table->string('book_id')->constrained()->onDelete('cascade'); // Cambiar el tipo de dato a 'string'
-            $table->string('book_title');
-            $table->integer('num_pages');
-            $table->integer('current_page');
+            $table->id();
+            
+            $table->unsignedBigInteger('user_id');
+            $table->string('book_id');
+
             $table->integer('progress');
             $table->integer('score');
-            $table->string('status');
+            $table->enum('state', ['reading','completed','pending','paused','dropped']);
             $table->timestamps();
     
+            $table->foreign('user_id')
+                ->references('id')
+                ->on('users')
+                ->onDelete('cascade');
+
+            $table->foreign('book_id')
+                ->references('id')
+                ->on('books')
+                ->onDelete('cascade');
+
             $table->unique(['user_id', 'book_id']);
         });
     }
