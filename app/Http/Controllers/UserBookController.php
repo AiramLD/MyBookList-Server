@@ -25,7 +25,7 @@ class UserBookController extends Controller
         if ($validator->fails()) {
 
             $response = ['errors' => null];
-
+ 
             $errors = $validator->errors();
 
             if($errors->has('user_id')) $response['errors']['user_id'] = 'User not found.';
