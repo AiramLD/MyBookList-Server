@@ -105,13 +105,24 @@ class UserBookController extends Controller
         $state = $request->query('state');
 
         if ($state) {
-            $books = $query->where('state', $state)->get();
-            if ($books) {
-                return response()->json($books, 200);
+            $query = $query->where('state', $state);
+
+            $totalItems = $query->count();
+            
+            if ($totalItems > 0) {
+                return response()->json([
+                    'totalItems' => $totalItems,
+                    'items' => $query->get()
+                ], 200);
             }
         } else {
-            return response()->json($query->get(), 200);
+            return response()->json([
+                'totalItems' => $query->count(),
+                'items' => $query->get()
+            ], 200);
         }
+
+        return response()->json([], 404);
     }
 
     public function destroy($user_id, $book_id)
