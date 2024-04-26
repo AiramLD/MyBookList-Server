@@ -58,7 +58,7 @@ class UserBookController extends Controller
                 ]
             );
     
-            if($userBook) return response()->json(['message' => 'Collection record saved successfully.'], 200);
+            if($userBook) return response()->json($userBook, 200);
         }
         return response()->json(['error' => 'Collection record could not be saved correctly.'], 400);
     }
@@ -93,6 +93,7 @@ class UserBookController extends Controller
             'user_books.book_id',
             'books.title',
             'books.pageCount',
+            'books.publishedDate',
             'user_books.progress',
             'user_books.score',
             'user_books.state',
@@ -105,13 +106,24 @@ class UserBookController extends Controller
         $state = $request->query('state');
 
         if ($state) {
-            $books = $query->where('state', $state)->get();
-            if ($books) {
-                return response()->json($books, 200);
+            $query = $query->where('state', $state);
+
+            $totalItems = $query->count();
+            
+            if ($totalItems > 0) {
+                return response()->json([
+                    'totalItems' => $totalItems,
+                    'items' => $query->get()
+                ], 200);
             }
         } else {
-            return response()->json($query->get(), 200);
+            return response()->json([
+                'totalItems' => $query->count(),
+                'items' => $query->get()
+            ], 200);
         }
+
+        return response()->json([], 404);
     }
 
     public function destroy($user_id, $book_id)
