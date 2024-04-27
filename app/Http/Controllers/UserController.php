@@ -155,9 +155,9 @@ class UserController extends Controller
     
             $request->user()->tokens()->delete();
     
-            return response()->json(['message' => 'Account deleted successfully.']);
+            return response()->json(['message' => 'Account deleted successfully.'], 200);
         } else {
-            return response()->json(['errors' => ['password' => 'Invalid password']]);
+            return response()->json(['errors' => ['password' => 'Invalid password']], 401);
         }
     }
 }

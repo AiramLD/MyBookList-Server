@@ -24,7 +24,7 @@ Route::post('/login', [UserController::class, 'login'])->name('login');
 
 Route::middleware('auth:sanctum')->post('/logout', [UserController::class, 'logout']);
 
-Route::middleware('auth:sanctum')->delete('/delete-account', [UserController::class, 'deleteAccount']);
+Route::middleware('auth:sanctum')->post('/delete-account', [UserController::class, 'deleteAccount']);
 
 Route::middleware('auth:sanctum')->get('/remember', [UserController::class, 'rememberSession']);
 
