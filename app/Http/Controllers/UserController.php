@@ -26,7 +26,6 @@ class UserController extends Controller
                 'required',
                 'string',
                 'min:8',
-                // Password must contain almost 1 character and 1 number
                 'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
             ],
             'password_confirmation' => 'required|same:password',
@@ -67,7 +66,6 @@ class UserController extends Controller
                 'required',
                 'string',
                 'min:8',
-                // Password must contain almost 1 character and 1 number
                 'regex:/^(?=.*[a-zA-Z])(?=.*\d).+$/',
             ],
             'remember' => 'nullable|boolean',
