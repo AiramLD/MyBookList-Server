@@ -10,8 +10,14 @@ composer install
 composer serve
 ```
 
-### Refresh migrations and seed the database
+### Refresh migrations
 
 ```sh
 composer refresh
+```
+
+### Refresh migrations and seed database
+
+```sh
+composer test
 ```
