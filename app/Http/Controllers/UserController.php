@@ -157,7 +157,7 @@ class UserController extends Controller
     
             return response()->json(['message' => 'Account deleted successfully.']);
         } else {
-            return response()->json(['error' => ['password' => 'Invalid password']]);
+            return response()->json(['errors' => ['password' => 'Invalid password']]);
         }
     }
 }
