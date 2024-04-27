@@ -18,7 +18,7 @@ php artisan migrate
 ### Refresh migrations
 
 ```sh
-php artisan refresh
+php artisan migrate:refresh
 ```
 ### Seeding the database
 
