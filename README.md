@@ -7,7 +7,7 @@ composer install
 ```
 
 ```sh
-composer serve
+php artisan serve
 ```
 
 ### Refresh migrations
